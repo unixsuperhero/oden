@@ -96,15 +96,14 @@ commands:
 ## The `o` root
 
 `cmd/o` is the family root bin (oden, ochazuke): an oden app named `o` with
-the builtins and one inline command, `tui`, which execs `nabe` (looked up on
-PATH, a clear error if absent) with the remaining words. Every other word
-follows the normal rule, so a tool joins the family by installing as
-`o-<tool>`:
+the builtins and nothing else built in. Every word follows the normal rule,
+so a tool joins the family by installing as `o-<tool>`; by convention the
+TUI host, nabe, is installed as both `o-nabe` and `o-tui`:
 
 | Word | Resolves to, highest first |
 |---|---|
-| `o tui ARGS` | inline `tui`: exec `nabe ARGS` |
 | `o help`, `o commands`, `o which W` | inline builtins |
+| `o tui ARGS`, `o nabe ARGS` | external `o-tui` / `o-nabe` (nabe) |
 | `o proj new x` | external `o-proj new x` (`ODEN_PARENT=o`) |
 | `o pr new x` | the same, by unique prefix |
 

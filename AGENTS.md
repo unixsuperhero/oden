@@ -13,7 +13,7 @@ ownership, resolution, exit codes, env vars); keep it in sync with the code.
 | `App`, options, `Child`, `Run`, external exec, `ExitError`/`ExitCode`/`Report` | `oden.go` |
 | `Catalog`, `Entry`, `Claim`, ownership and shadowing, `Resolve` | `catalog.go` |
 | PATH scan, `FS`, `Discover`, `DiscoverAll` (extra prefixes), `Executable` | `discover.go` |
-| The `o` root bin (`tui` execs nabe) | `cmd/o` |
+| The `o` root bin (builtins + `o-<tool>`) | `cmd/o` |
 | Help listing | `help.go` |
 | Opt-in `help`, `commands`, `which` | `builtins.go` |
 
@@ -42,8 +42,8 @@ command word is the command's.
 - Extra prefixes are opt-in (`WithPrefixes`) and always rank after the bin's
   own `<bin>-<sub>`; the loser is shadowed, never dropped. No bare-name
   lookup: a command is always `<prefix>-<sub>`, never an arbitrary PATH tool.
-- `cmd/o` is the family root: builtins, `tui` (execs nabe) and `o-<tool>`
-  externals. No TUI code in oden.
+- `cmd/o` is the family root: builtins and `o-<tool>` externals only; the
+  TUI host is `o-nabe`/`o-tui` on PATH. No TUI code in oden.
 - Never bind function keys anywhere (examples and a future TUI included).
 
 ## Checks
