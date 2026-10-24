@@ -29,6 +29,7 @@ type Command struct {
 	Aliases []string
 	Summary string
 	Run     func(ctx context.Context, args []string) error
+	Handle  Handler // takes precedence over Run when set
 	Source  string
 }
 
@@ -250,6 +251,12 @@ func (a *App) fallback(ctx context.Context, word string) error {
 // RunEntry runs one catalog entry with args.
 func (a *App) RunEntry(ctx context.Context, e *Entry, args []string) error {
 	if e.Kind == KindInline {
+		if e.Command.Handle != nil {
+			return e.Command.Handle(&Ctx{
+				Context: ctx, App: a, Name: e.Command.Name, Args: args,
+				Stdin: a.Stdin, Stdout: a.Stdout, Stderr: a.Stderr,
+			})
+		}
 		return e.Command.Run(ctx, args)
 	}
 	cmd := exec.CommandContext(ctx, e.Path, args...)
