@@ -48,6 +48,10 @@ type App struct {
 	FS   FS            // nil is OS
 	Env  []string      // an external's environment; nil is os.Environ()
 
+	// Prefixes (WithPrefixes) are extra bin names whose <name>-<sub>
+	// executables are discovered after the bin's own.
+	Prefixes []string
+
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 
@@ -85,6 +89,15 @@ func WithEnv(env []string) Option { return func(a *App) { a.Env = env } }
 // WithStdio sets the streams commands read and write.
 func WithStdio(in io.Reader, out, errOut io.Writer) Option {
 	return func(a *App) { a.Stdin, a.Stdout, a.Stderr = in, out, errOut }
+}
+
+// WithPrefixes adds bin names whose <name>-<sub> executables on PATH are
+// also this bin's commands, discovered after its own <bin>-<sub> and in
+// the given order: with WithPrefixes("o"), mtm proj runs o-proj unless an
+// mtm-proj is on PATH, which then shadows it. A Child does not inherit
+// them.
+func WithPrefixes(names ...string) Option {
+	return func(a *App) { a.Prefixes = append(a.Prefixes, names...) }
 }
 
 // WithDefault sets the handler for no command word or an unknown one.
@@ -143,7 +156,7 @@ func (a *App) Catalog() *Catalog {
 		if fsys == nil {
 			fsys = OS
 		}
-		found, shadowed := Discover(a.Name, a.pathList(), fsys)
+		found, shadowed := DiscoverAll(append([]string{a.Name}, a.Prefixes...), a.pathList(), fsys)
 		a.catalog = NewCatalog(a.Name, a.commands, found, shadowed)
 	}
 	return a.catalog

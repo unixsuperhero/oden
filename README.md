@@ -25,6 +25,15 @@ shadowed. Discovery runs once, on first use, and is cached until the next
 `Add`. The PATH list and the file system are injectable (`WithPath`,
 `WithFS`).
 
+**Extra prefixes** (opt-in, `WithPrefixes("o")`): more bin names whose
+`<name>-<sub>` executables are also this bin's commands, discovered after
+the bin's own `<bin>-<sub>` (every PATH directory for the bin's prefix, then
+every directory per extra prefix, in the given order). So `mtm` built with
+`WithPrefixes("o")` runs `o-proj` for `mtm proj`, and an `mtm-proj` anywhere
+on PATH wins and lists `o-proj` as shadowed. Entries carry their `prefix`
+(JSON) and help shows the path. The descendant rule below is unchanged
+across prefixes; a `Child` does not inherit extra prefixes.
+
 **Ownership** of a token, highest first:
 
 1. an inline command's name (the first registration wins)
@@ -84,13 +93,31 @@ commands:
            shadows external /opt/mtm-web
 ```
 
+## The `o` root
+
+`cmd/o` is the family root bin (oden, ochazuke): an oden app named `o` with
+the builtins and one inline command, `tui`, which execs `nabe` (looked up on
+PATH, a clear error if absent) with the remaining words. Every other word
+follows the normal rule, so a tool joins the family by installing as
+`o-<tool>`:
+
+| Word | Resolves to, highest first |
+|---|---|
+| `o tui ARGS` | inline `tui`: exec `nabe ARGS` |
+| `o help`, `o commands`, `o which W` | inline builtins |
+| `o proj new x` | external `o-proj new x` (`ODEN_PARENT=o`) |
+| `o pr new x` | the same, by unique prefix |
+
+Install: `go build -o ~/bin/o ./cmd/o`. Another app shares the family's
+tools with `WithPrefixes("o")`, as `mtm` does (`mtm proj` runs `o-proj`).
+
 ## API
 
 ```go
 type Command struct{ Name string; Aliases []string; Summary string; Run func(ctx, args) error; Source string }
 type App struct{ Name, Root string; Args []string; Default func(ctx, args) error; Path func() string; FS FS; Env []string; Stdin; Stdout, Stderr }
 func New(name string, args []string, opts ...Option) *App
-func WithBuiltins() / WithDefault(fn) / WithPath(p) / WithFS(fs) / WithEnv(env) / WithStdio(in, out, err) Option
+func WithBuiltins() / WithDefault(fn) / WithPrefixes(names...) / WithPath(p) / WithFS(fs) / WithEnv(env) / WithStdio(in, out, err) Option
 func Child(parent *App, sub string, args []string) *App
 func (a *App) Add(cmds ...Command) *App
 func (a *App) Catalog() *Catalog
@@ -101,6 +128,7 @@ func NewCatalog(bin string, inline []*Command, externals, shadowed []External) *
 func (c *Catalog) Resolve(word string) Resolution // Entry, Exact, Ambiguous, Candidates
 func (c *Catalog) Lookup(token string) *Entry
 func Discover(bin, path string, fsys FS) (found, shadowed []External)
+func DiscoverAll(bins []string, path string, fsys FS) (found, shadowed []External)
 func ExitCode(err error) int; func Report(w, prefix string, err error) int
 ```
 
@@ -123,4 +151,5 @@ no word is given.
 ```sh
 gofmt -l . && go vet ./... && go test -race ./...
 go run ./examples/hello help
+go run ./cmd/o help
 ```

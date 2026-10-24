@@ -68,11 +68,11 @@ func TestDiscoverFirstOnPathWinsAndSkipsNonExecutables(t *testing.T) {
 		"/b": {"mtm-web": 0o755, "mtm-ai": 0o755, "mtm-ai-skills": 0o700},
 	}
 	found, shadowed := Discover("mtm", "/a:/missing:/b:/a:", fsys)
-	want := []External{{"web", "/a/mtm-web"}, {"ai", "/b/mtm-ai"}, {"ai-skills", "/b/mtm-ai-skills"}}
+	want := []External{{"web", "/a/mtm-web", "mtm"}, {"ai", "/b/mtm-ai", "mtm"}, {"ai-skills", "/b/mtm-ai-skills", "mtm"}}
 	if !reflect.DeepEqual(found, want) {
 		t.Fatalf("found = %+v", found)
 	}
-	if !reflect.DeepEqual(shadowed, []External{{"web", "/b/mtm-web"}}) {
+	if !reflect.DeepEqual(shadowed, []External{{"web", "/b/mtm-web", "mtm"}}) {
 		t.Fatalf("shadowed = %+v", shadowed)
 	}
 	if dirs := PathDirs("/a::/b/../a:/c"); !reflect.DeepEqual(dirs, []string{"/a", ".", "/c"}) {
@@ -356,5 +356,64 @@ func TestInlineDescendantsFollowTheSameRule(t *testing.T) {
 	}
 	if res := app.Catalog().Resolve("ai-"); !res.Ambiguous || len(res.Candidates) != 2 {
 		t.Fatalf("ai- = %+v", res)
+	}
+}
+
+// WithPrefixes: the bin's own <bin>-<sub> beats an extra prefix's
+// <extra>-<sub> wherever each sits on PATH; the loser is shadowed.
+func TestPrefixesOwnBeatsExtraAndHelpShowsThePath(t *testing.T) {
+	fsys := fakeFS{
+		"/a": {"o-proj": 0o755, "o-web": 0o755, "x-web": 0o755},
+		"/b": {"mtm-web": 0o755, "o-proj": 0o755},
+	}
+	app, out, _ := testApp(t, fsys, "/a:/b", WithPrefixes("o", "x"))
+	cat := app.Catalog()
+	proj := cat.Lookup("proj")
+	if proj == nil || proj.Kind != KindExternal || proj.Path != "/a/o-proj" || proj.Prefix != "o" {
+		t.Fatalf("proj = %+v", proj)
+	}
+	if len(proj.Shadowed) != 1 || proj.Shadowed[0].Source != "/b/o-proj" {
+		t.Fatalf("proj shadowed = %+v", proj.Shadowed)
+	}
+	web := cat.Lookup("web")
+	if web.Path != "/b/mtm-web" || web.Prefix != "mtm" {
+		t.Fatalf("web = %+v", web)
+	}
+	var lost []string
+	for _, c := range web.Shadowed {
+		lost = append(lost, c.Source)
+	}
+	if !reflect.DeepEqual(lost, []string{"/a/o-web", "/a/x-web"}) {
+		t.Fatalf("web shadowed = %v", lost)
+	}
+	app.Help(out)
+	for _, want := range []string{"proj  (external)", "/a/o-proj", "shadows external /b/o-proj", "shadows external /a/o-web"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("help lacks %q:\n%s", want, out)
+		}
+	}
+	plain, _, _ := testApp(t, fsys, "/a:/b")
+	if plain.Catalog().Lookup("proj") != nil {
+		t.Fatal("extra prefixes are opt-in")
+	}
+}
+
+func TestPrefixesKeepTheDescendantRule(t *testing.T) {
+	fsys := fakeFS{"/bin": {"mtm-ai": 0o755, "o-ai-skills": 0o755, "o-alpha": 0o755}}
+	app, _, _ := testApp(t, fsys, "/bin", WithPrefixes("o"))
+	cat := app.Catalog()
+	if res := cat.Resolve("ai"); !res.Exact || res.Entry.Path != "/bin/mtm-ai" {
+		t.Fatalf("ai = %+v", res)
+	}
+	if res := cat.Resolve("ai-"); res.Entry == nil || res.Entry.Path != "/bin/o-ai-skills" {
+		t.Fatalf("ai- = %+v", res)
+	}
+	if res := cat.Resolve("a"); !res.Ambiguous || len(res.Candidates) != 2 {
+		t.Fatalf("a = %+v", res)
+	}
+	fsys["/bin"]["o-alpha"] = 0o644
+	app, _, _ = testApp(t, fsys, "/bin", WithPrefixes("o"))
+	if res := app.Catalog().Resolve("a"); res.Entry == nil || res.Entry.Name != "ai" {
+		t.Fatalf("a (descendant only) = %+v", res)
 	}
 }

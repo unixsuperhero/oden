@@ -73,7 +73,7 @@ func Discover(bin, path string, fsys FS) (found, shadowed []External) {
 			if !Executable(fsys, full) {
 				continue
 			}
-			ext := External{Name: strings.TrimPrefix(name, prefix), Path: full}
+			ext := External{Name: strings.TrimPrefix(name, prefix), Path: full, Prefix: bin}
 			if taken[ext.Name] {
 				shadowed = append(shadowed, ext)
 				continue
@@ -81,6 +81,26 @@ func Discover(bin, path string, fsys FS) (found, shadowed []External) {
 			taken[ext.Name] = true
 			found = append(found, ext)
 		}
+	}
+	return found, shadowed
+}
+
+// DiscoverAll discovers each prefix in turn: every <bin>-<sub> on PATH
+// first, then every <extra>-<sub> per extra prefix, in the given order.
+// A sub already found under an earlier prefix shadows the later ones.
+func DiscoverAll(bins []string, path string, fsys FS) (found, shadowed []External) {
+	taken := map[string]bool{}
+	for _, bin := range bins {
+		f, s := Discover(bin, path, fsys)
+		for _, ext := range f {
+			if taken[ext.Name] {
+				shadowed = append(shadowed, ext)
+				continue
+			}
+			taken[ext.Name] = true
+			found = append(found, ext)
+		}
+		shadowed = append(shadowed, s...)
 	}
 	return found, shadowed
 }

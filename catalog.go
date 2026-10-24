@@ -14,10 +14,12 @@ const (
 	KindExternal Kind = "external"
 )
 
-// External is an executable named <bin>-<Name> found on PATH.
+// External is an executable named <Prefix>-<Name> found on PATH. Prefix
+// is the bin itself or one of its extra prefixes (WithPrefixes).
 type External struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Prefix string `json:"prefix,omitempty"`
 }
 
 // Claim is a losing claim on a token: a later inline registration, an
@@ -38,6 +40,7 @@ type Entry struct {
 	Aliases  []string `json:"aliases"`
 	Summary  string   `json:"summary,omitempty"`
 	Source   string   `json:"source"`
+	Prefix   string   `json:"prefix,omitempty"` // an external's <prefix>-
 	Shadowed []Claim  `json:"shadowed"`
 
 	Command *Command `json:"-"` // set for KindInline
@@ -89,7 +92,7 @@ func NewCatalog(bin string, inline []*Command, externals, shadowedExternals []Ex
 			w.Shadowed = append(w.Shadowed, Claim{Name: ext.Name, Kind: KindExternal, Source: ext.Path})
 			continue
 		}
-		byName[ext.Name] = &Entry{Name: ext.Name, Kind: KindExternal, Aliases: []string{}, Source: ext.Path, Shadowed: []Claim{}, Path: ext.Path}
+		byName[ext.Name] = &Entry{Name: ext.Name, Kind: KindExternal, Aliases: []string{}, Source: ext.Path, Prefix: ext.Prefix, Shadowed: []Claim{}, Path: ext.Path}
 	}
 	for _, ext := range shadowedExternals {
 		if w := byName[ext.Name]; w != nil {

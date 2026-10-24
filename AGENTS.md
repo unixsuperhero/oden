@@ -3,7 +3,7 @@
 The lowest-level layer for subcommand-driven CLIs: inline commands plus
 `<bin>-<sub>` executables on PATH, resolved by name, alias or unique prefix.
 Standard library only. Single flat package at the repo root, `examples/hello`
-as the reference consumer. README.md holds the contract (naming, discovery,
+as the reference consumer, `cmd/o` the family root bin. README.md holds the contract (naming, discovery,
 ownership, resolution, exit codes, env vars); keep it in sync with the code.
 
 ## Where does X live
@@ -12,7 +12,8 @@ ownership, resolution, exit codes, env vars); keep it in sync with the code.
 |---|---|
 | `App`, options, `Child`, `Run`, external exec, `ExitError`/`ExitCode`/`Report` | `oden.go` |
 | `Catalog`, `Entry`, `Claim`, ownership and shadowing, `Resolve` | `catalog.go` |
-| PATH scan, `FS`, `Discover`, `Executable` | `discover.go` |
+| PATH scan, `FS`, `Discover`, `DiscoverAll` (extra prefixes), `Executable` | `discover.go` |
+| The `o` root bin (`tui` execs nabe) | `cmd/o` |
 | Help listing | `help.go` |
 | Opt-in `help`, `commands`, `which` | `builtins.go` |
 
@@ -38,6 +39,11 @@ command word is the command's.
 - Discovery and the environment are injectable (`WithPath`, `WithFS`,
   `WithEnv`, `WithStdio`); tests never depend on the developer's PATH.
 - Externals get `ODEN_PARENT` and `ODEN_ROOT`; a child bin is `<bin>-<sub>`.
+- Extra prefixes are opt-in (`WithPrefixes`) and always rank after the bin's
+  own `<bin>-<sub>`; the loser is shadowed, never dropped. No bare-name
+  lookup: a command is always `<prefix>-<sub>`, never an arbitrary PATH tool.
+- `cmd/o` is the family root: builtins, `tui` (execs nabe) and `o-<tool>`
+  externals. No TUI code in oden.
 - Never bind function keys anywhere (examples and a future TUI included).
 
 ## Checks
