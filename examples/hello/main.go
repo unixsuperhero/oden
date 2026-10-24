@@ -1,4 +1,4 @@
-// Command hello is the oden example: two inline commands (greet, echo) and
+// Command hello demonstrates context handlers (greet, echo, cat, lines) and
 // any hello-<sub> executable on PATH. Try it:
 //
 //	go build -o /tmp/hello ./examples/hello
@@ -8,7 +8,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -17,19 +17,30 @@ import (
 
 func main() {
 	app := oden.New("hello", os.Args[1:], oden.WithBuiltins())
-	app.Add(
-		oden.Command{Name: "greet", Aliases: []string{"hi"}, Summary: "say hello", Run: func(_ context.Context, args []string) error {
-			name := "world"
-			if len(args) > 0 {
-				name = args[0]
+	app.Cmd("greet", "say hello", func(c *oden.Ctx) error {
+		return c.Printf("hello, %s\n", c.Arg(0, "world"))
+	}, "hi")
+	app.Cmd("echo", "print the arguments", func(c *oden.Ctx) error {
+		return c.Println(strings.Join(c.Args, " "))
+	})
+	app.Cmd("cat", "concatenate files or stdin", func(c *oden.Ctx) error {
+		in := c.Input()
+		defer in.Close()
+		_, err := io.Copy(c.Stdout, in)
+		return err
+	})
+	app.Cmd("lines", "number input lines", func(c *oden.Ctx) error {
+		n := 0
+		for line, err := range c.Lines() {
+			if err != nil {
+				return err
 			}
-			fmt.Fprintf(app.Stdout, "hello, %s\n", name)
-			return nil
-		}},
-		oden.Command{Name: "echo", Summary: "print the arguments", Run: func(_ context.Context, args []string) error {
-			fmt.Fprintln(app.Stdout, strings.Join(args, " "))
-			return nil
-		}},
-	)
+			n++
+			if err := c.Printf("%d: %s\n", n, line); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	os.Exit(oden.Report(os.Stderr, "hello", app.Run(context.Background())))
 }
