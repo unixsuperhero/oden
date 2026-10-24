@@ -1,0 +1,10 @@
+usage: mtm COMMAND [ARGS...]
+
+commands:
+  other    (inline)              app.go:30
+  project  (inline)    projects  app.go:20
+  task, t  (inline)    tasks     app.go:10
+           shadows external /bin/mtm-task
+           shadows alias task of other app.go:30
+  web      (external)            /bin/mtm-web
+           shadows external /opt/mtm-web
