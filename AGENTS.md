@@ -16,7 +16,8 @@ ownership, resolution, exit codes, env vars); keep it in sync with the code.
 | PATH scan, `FS`, `Discover`, `DiscoverAll` (extra prefixes), `Executable` | `discover.go` |
 | The `o` root bin (builtins + `o-<tool>`) | `cmd/o` |
 | Help listing | `help.go` |
-| Opt-in `help`, `commands`, `which` | `builtins.go` |
+| Opt-in `help`, `commands`, `which`, `catalog`, `state`, `command` | `builtins.go` |
+| The schema-1 catalog answer and command rows (`CatalogDoc`, `CommandRows`) | `catalogdoc.go` |
 | Runnable bin-to-bin delegation examples | `examples/delegation.go` |
 
 ## What oden owns

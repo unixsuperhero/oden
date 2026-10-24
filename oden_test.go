@@ -417,3 +417,40 @@ func TestPrefixesKeepTheDescendantRule(t *testing.T) {
 		t.Fatalf("a (descendant only) = %+v", res)
 	}
 }
+
+// An app's own catalog and state replace the builtins whether added before
+// or after WithBuiltins runs (cli.Mount adds catalog after New); the
+// builtin is the claim each shadows.
+func TestAppCommandsReplaceBuiltins(t *testing.T) {
+	var out bytes.Buffer
+	own := func(word string) Command {
+		return Command{Name: word, Source: "app.go:1", Run: func(context.Context, []string) error {
+			out.WriteString("own " + word)
+			return nil
+		}}
+	}
+	for _, before := range []bool{false, true} {
+		var opts []Option
+		if before {
+			opts = append(opts, func(a *App) { a.Add(own("catalog")) })
+		}
+		app, _, _ := testApp(t, fakeFS{}, "", append(opts, WithBuiltins())...)
+		if !before {
+			app.Add(own("catalog"))
+		}
+		app.Add(own("state"))
+		for _, word := range []string{"catalog", "state"} {
+			out.Reset()
+			app.Args = []string{word}
+			if err := app.Run(context.Background()); err != nil || out.String() != "own "+word {
+				t.Fatalf("before=%v %s: %v %q", before, word, err, out.String())
+			}
+			if e := app.Catalog().Lookup(word); e.Source != "app.go:1" || len(e.Shadowed) != 1 || !strings.HasPrefix(e.Shadowed[0].Source, "oden/builtins.go:") {
+				t.Fatalf("before=%v %s entry %+v", before, word, e)
+			}
+		}
+		if e := app.Catalog().Lookup("help"); e == nil || e.Kind != KindInline {
+			t.Fatalf("help builtin lost: %+v", e)
+		}
+	}
+}

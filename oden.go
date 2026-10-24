@@ -31,6 +31,8 @@ type Command struct {
 	Run     func(ctx context.Context, args []string) error
 	Handle  Handler // takes precedence over Run when set
 	Source  string
+
+	builtin bool // WithBuiltins': loses its name to any other inline command
 }
 
 // App is one bin: its name, its arguments (without the bin name), its
@@ -144,6 +146,22 @@ func (a *App) add(skip int, cmds ...Command) *App {
 	return a
 }
 
+// inline is the commands in registration order for NewCatalog: the app's
+// own first, then the builtins, so an app command named like a builtin
+// owns the name (whenever it was added) and the builtin is its shadowed
+// claim.
+func (a *App) inline() []*Command {
+	out := make([]*Command, 0, len(a.commands))
+	for _, builtin := range []bool{false, true} {
+		for _, c := range a.commands {
+			if c.builtin == builtin {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}
+
 // shortFile is a source file's last directory and name.
 func shortFile(file string) string {
 	return filepath.Join(filepath.Base(filepath.Dir(file)), filepath.Base(file))
@@ -158,7 +176,7 @@ func (a *App) Catalog() *Catalog {
 			fsys = OS
 		}
 		found, shadowed := DiscoverAll(append([]string{a.Name}, a.Prefixes...), a.pathList(), fsys)
-		a.catalog = NewCatalog(a.Name, a.commands, found, shadowed)
+		a.catalog = NewCatalog(a.Name, a.inline(), found, shadowed)
 	}
 	return a.catalog
 }

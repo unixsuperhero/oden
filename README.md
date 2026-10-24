@@ -136,7 +136,14 @@ every command with its kind, summary, source (file:line of the `Add` call for
 inline, the path for external) and shadowed claims; `commands` prints the
 catalog as JSON (`name`, `kind`, `aliases`, `summary`, `source`,
 `shadowed`); `which WORD` prints `name kind source` for what the word
-resolves to.
+resolves to; `catalog` prints the catalog answer in ochazuke/cli's schema 1
+(one noun, `command`, with `list` (rows `command`), `show NAME` and `state`;
+no bindings or pages; version from the build info), and `state` (also
+`command state`) prints one JSON Line per entry:
+`{"noun":"command","id":"proj","label":"proj  external  ~/bin/o-proj","data":{"kind","path","source","aliases","shadows","prefix"}}`.
+A builtin is a default: an app command of the same name (cli.Mount's
+`catalog`) owns the name whenever it is added, and the builtin is listed as
+its shadowed claim.
 
 ```
 usage: mtm COMMAND [ARGS...]
@@ -157,7 +164,7 @@ TUI host, nabe, is installed as both `o-nabe` and `o-tui`:
 
 | Word | Resolves to, highest first |
 |---|---|
-| `o help`, `o commands`, `o which W` | inline builtins |
+| `o help`, `o commands`, `o which W`, `o catalog`, `o state`, `o command list\|show\|state` | inline builtins |
 | `o tui ARGS`, `o nabe ARGS` | external `o-tui` / `o-nabe` (nabe) |
 | `o proj new x` | external `o-proj new x` (`ODEN_PARENT=o`) |
 | `o pr new x` | the same, by unique prefix |
