@@ -147,6 +147,45 @@ and external commands, and is hiiro's
 `token.start_with?(word)`, then a match whose name starts with
 `"<other match>-"` is rejected).
 
+**Merge and shadow** (command groups). An inline command group `NAME`
+(`Children`) and an external `<bin>-NAME` (or `<prefix>-NAME` through
+`WithPrefixes`) on PATH are one group, not a winner and a loser: `BIN NAME
+WORD ...` resolves `WORD` over the group's children (inline, and
+`<bin>-NAME-<sub>` on PATH as for any child) together with the external's
+subcommands. The order is unchanged: an exact name or alias first, inline
+before the external (a name on both sides runs the inline one), then a
+unique prefix over the union with the descendant rule. A prefix matching
+several candidates across both sides is ambiguous and lists them with
+their source. An external subcommand runs as `<bin>-NAME SUB ARGS...` with
+the usual `ODEN_PARENT=<bin>` and `ODEN_ROOT`. The group's help lists the
+union, each row with its source (`noun` or file:line inline, the
+external's file name otherwise); an external subcommand that loses to an
+inline name stays on the inline row as `shadows external <bin>-NAME SUB`
+and is still reachable directly as `<bin>-NAME SUB`. The parent's help
+shows the group row `merges external PATH`, and `commands` marks that
+claim `"merged": true`. `subcommand not found` suggestions search both
+sides.
+
+Oden learns the external's subcommands by asking it, without any declared
+dependency: `<bin>-NAME catalog` (an ochazuke catalog's nouns; for a plain
+oden bin's `command` noun, its `command list` rows), else `<bin>-NAME
+commands --json`, each with no stdin, the external's environment and a
+2-second timeout. The answer, an empty one too, is cached in
+`$XDG_CACHE_HOME/oden` (else `~/.cache/oden`), keyed by the executable's
+path, size and modification time, so a rebuilt or touched external is
+asked again and an unchanged one never is. An external that answers
+nothing usable (a shell script) is pass-through: every word that does not
+resolve to an inline child runs `<bin>-NAME WORD ...` unchanged, and the
+group's help says `Other words run <bin>-NAME (PATH).` The external is
+never run while a word resolves exactly (inline or a PATH child), nor for
+a group that has no same-named external, nor for anything outside a
+group. Only the first external on PATH merges; later ones stay shadowed.
+A non-group inline command and a same-named external keep the plain rule
+below: the inline command owns the word and the external is shadowed.
+Merging is one level deep: a nested inline group merges its own
+`<bin>-NAME-<sub>` external, not the parent external's verbs, and
+`Ctx.Sub` groups (handler-built) do not merge.
+
 **Not found.** A word with no exact and no prefix match names nothing. Run
 prints to stderr `BIN: command "WORD" not found` (below the root, such as in
 a command group, `BIN GROUP: subcommand "WORD" not found`), then, when
@@ -258,7 +297,8 @@ stays flat. Apps with no machine commands retain the plain `commands:`
 listing. JSON entries and command rows retain optional category/audience
 metadata. Neither affects resolution.
 
-Oden does not execute discovered tools to collect metadata. External
+Oden does not execute discovered tools to collect metadata, except to
+learn a merged external's subcommands (see Merge and shadow). External
 categories must be assigned by the owning app. `Child` does not inherit
 category assignments because its command names belong to a different scope.
 
@@ -415,8 +455,8 @@ Exported data types and values:
 | `Parameter` | `Name`, `Type`, `Description`, `Required`, `Choices`, `Source`, `Free` |
 | `App` | `Name`, `Root`, `Args`, `Default`, `Path`, `FS`, `Env`, `Prefixes`, `Stdin`, `Stdout`, `Stderr`, `HelpText` |
 | `Catalog` | `Bin`, sorted `Entries` |
-| `Entry` | `Name`, `Kind`, `Aliases`, `Summary`, `Source`, `Prefix`, `Shadowed`, `Command`, `Path` |
-| `Claim` | `Name`, `Kind`, `Source`, `AliasOf` |
+| `Entry` | `Name`, `Kind`, `Aliases`, `Summary`, `Source`, `Prefix`, `Shadowed`, `Sub` (a merged external's subcommand), `Command`, `Path` |
+| `Claim` | `Name`, `Kind`, `Source`, `AliasOf`, `Merged` |
 | `External` | `Name`, `Path`, `Prefix` |
 | `Resolution` | `Query`, `Entry`, `Exact`, `Ambiguous`, `Candidates` |
 | `Kind` | `KindInline`, `KindExternal` |

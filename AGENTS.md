@@ -19,6 +19,7 @@ Family plans, todos and the roadmap live in `~/hub/o-plans/` (`README.md` is the
 | `Catalog`, `Entry`, `Claim`, ownership and shadowing, `Resolve` | `catalog.go` |
 | PATH scan, `FS`, `Discover`, `DiscoverAll` (extra prefixes), `Executable` | `discover.go` |
 | The `o` root bin (builtins + `o-<tool>`) | `cmd/o` |
+| Merging a command group with the same-named external (probe, cache) | `merge.go` |
 | Help listing | `help.go` |
 | Opt-in `help`, `commands`, `which`, `catalog`, `state`, `command` | `builtins.go` |
 | The schema-1 catalog answer and command rows (`CatalogDoc`, `CommandRows`) | `catalogdoc.go` |
@@ -43,6 +44,9 @@ command word is the command's.
   ownership inline name > external > inline alias; first registration and
   first on PATH win. Never special-case a name to change the order.
 - Nothing is shadowed silently: every losing claim is recorded on the winner.
+- A command group merges the same-named external (`Claim.Merged`); the
+  external is asked for its subcommands only when that group runs a word
+  that is not an exact inline or PATH child, and the answer is cached.
 - Discovery and the environment are injectable (`WithPath`, `WithFS`,
   `WithEnv`, `WithStdio`); tests never depend on the developer's PATH.
 - `Cmd` registers ordinary `Command` rows. `Handle` takes precedence over
