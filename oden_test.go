@@ -190,7 +190,7 @@ func TestRunInlineDefaultAndAmbiguous(t *testing.T) {
 	}
 	errOut.Reset()
 	app.Args = []string{"nope", "x"}
-	if err := app.Run(context.Background()); ExitCode(err) != 1 || !strings.Contains(errOut.String(), `unknown command "nope"`) {
+	if err := app.Run(context.Background()); ExitCode(err) != 1 || !strings.Contains(errOut.String(), `mtm: command "nope" not found`) {
 		t.Fatalf("unknown without default: %v\n%s", err, errOut)
 	}
 	app.Default = func(_ context.Context, args []string) error { defaulted = args; return nil }

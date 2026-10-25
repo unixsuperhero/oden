@@ -52,7 +52,8 @@ type App struct {
 
 	// Default runs when no command word is given or the word names no
 	// command; it receives every argument. Without it, help is printed to
-	// Stderr and Run exits 1.
+	// Stderr and Run exits 1. Default returns ErrNotFound to hand an
+	// unknown word back to Run, which then reports it as NotFound does.
 	Default func(ctx context.Context, args []string) error
 
 	Path func() string // the PATH list; nil reads $PATH
@@ -278,15 +279,18 @@ func (a *App) Run(ctx context.Context) error {
 
 func (a *App) fallback(ctx context.Context, word string) error {
 	if a.Default != nil {
-		return a.Default(ctx, a.Args)
+		err := a.Default(ctx, a.Args)
+		if errors.Is(err, ErrNotFound) && word != "" {
+			return a.NotFound(word)
+		}
+		return err
 	}
 	if word == "" {
 		fmt.Fprintf(a.Stderr, "usage: %s COMMAND [ARGS...]\n\ncommands:\n", a.helpName())
-	} else {
-		fmt.Fprintf(a.Stderr, "%s: unknown command %q\n\ncommands:\n", a.helpName(), word)
+		a.List(a.Stderr, a.Catalog().Entries)
+		return &ExitError{Code: 1}
 	}
-	a.List(a.Stderr, a.Catalog().Entries)
-	return &ExitError{Code: 1}
+	return a.NotFound(word)
 }
 
 // RunEntry runs one catalog entry with args.

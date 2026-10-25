@@ -147,12 +147,27 @@ and external commands, and is hiiro's
 `token.start_with?(word)`, then a match whose name starts with
 `"<other match>-"` is rejected).
 
+**Not found.** A word with no exact and no prefix match names nothing. Run
+prints to stderr `BIN: command "WORD" not found` (below the root, such as in
+a command group, `BIN GROUP: subcommand "WORD" not found`), then, when
+there are any, a short `did you mean: A, B` line of at most three commands:
+first those whose name or alias is a prefix of the word (`tasks` suggests
+`task`), then those within a small edit distance (one insertion, deletion,
+substitution or adjacent swap for a word of up to five letters, else two),
+then the level's help (the same listing as `BIN help` or a bare group), and
+exits 1. Suggestions are never run: `tasks` does not resolve to `task`.
+`App.Suggest(word)` returns the suggestions and `App.NotFound(word)` prints
+the report and returns the exit error.
+
 **Running.** An inline command gets the remaining words. An external is
 executed with the remaining words, the App's stdio, and the environment plus
 `ODEN_PARENT=<bin>` and `ODEN_ROOT=<outermost bin>`. No word, or a word that
 names nothing, runs the `Default` handler with every argument; without one,
-help goes to stderr and the exit is 1. An ambiguous word prints the
-candidates to stderr and exits 1, even with a `Default`.
+no word prints help to stderr and exits 1, and an unknown word is reported
+as above. A `Default` that only wants the no-word case (a TUI) returns
+`oden.ErrNotFound` for words, and Run reports the unknown word as if there
+were no `Default`. An ambiguous word prints the candidates to stderr and
+exits 1, even with a `Default`.
 
 **Nesting.** `oden.Child(app, "ai", args)` is the App named `mtm-ai`, so it
 resolves `mtm-ai-skills`; an external `mtm-ai` that is itself an oden app
@@ -366,6 +381,9 @@ func (a *App) Run(ctx context.Context) error
 func (a *App) RunEntry(ctx context.Context, e *Entry, args []string) error
 func (a *App) Help(w io.Writer)
 func (a *App) List(w io.Writer, entries []*Entry)
+func (a *App) NotFound(word string) error // reports an unknown word; exit 1
+func (a *App) Suggest(word string) []string
+var ErrNotFound error // returned by Default to defer an unknown word to Run
 func (c *Ctx) Arg(i int, def string) string
 func (c *Ctx) Open(paths ...string) io.ReadCloser
 func (c *Ctx) Input() io.ReadCloser
