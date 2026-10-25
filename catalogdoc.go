@@ -68,12 +68,15 @@ type Row struct {
 // CommandData is a command row's record: how the entry runs, where from,
 // its aliases and every claim it shadows.
 type CommandData struct {
-	Kind    Kind     `json:"kind"`
-	Path    string   `json:"path,omitempty"` // an external's executable
-	Source  string   `json:"source"`
-	Aliases []string `json:"aliases"`
-	Shadows []Claim  `json:"shadows"`
-	Prefix  string   `json:"prefix,omitempty"` // an external's <prefix>-
+	Kind     Kind     `json:"kind"`
+	Category string   `json:"category,omitempty"`
+	Summary  string   `json:"summary,omitempty"`
+	Audience Audience `json:"audience,omitempty"`
+	Path     string   `json:"path,omitempty"` // an external's executable
+	Source   string   `json:"source"`
+	Aliases  []string `json:"aliases"`
+	Shadows  []Claim  `json:"shadows"`
+	Prefix   string   `json:"prefix,omitempty"` // an external's <prefix>-
 }
 
 // CatalogDoc is the bin's catalog answer: the command noun with list
@@ -127,7 +130,7 @@ func commandRow(e *Entry) Row {
 		aliases = []string{}
 	}
 	return Row{Noun: CommandNoun, ID: e.Name, Label: strings.Join([]string{e.Name, string(e.Kind), where}, "  "),
-		Data: CommandData{Kind: e.Kind, Path: e.Path, Source: e.Source, Aliases: aliases, Shadows: shadows, Prefix: e.Prefix}}
+		Data: CommandData{Kind: e.Kind, Category: e.Category, Summary: e.Summary, Audience: e.Audience, Path: e.Path, Source: e.Source, Aliases: aliases, Shadows: shadows, Prefix: e.Prefix}}
 }
 
 // WriteState writes the command rows as JSON Lines.

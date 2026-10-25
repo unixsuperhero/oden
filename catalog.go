@@ -32,6 +32,15 @@ type Claim struct {
 	AliasOf string `json:"alias_of,omitempty"`
 }
 
+// Audience identifies a command's intended consumer, independently of its
+// domain category. Unspecified commands are presented as human-facing.
+type Audience string
+
+const (
+	AudienceHuman   Audience = "human"
+	AudienceMachine Audience = "machine"
+)
+
 // Entry is one command of a catalog: the winning claim on its name, its
 // aliases and every claim it shadows.
 type Entry struct {
@@ -39,6 +48,8 @@ type Entry struct {
 	Kind     Kind     `json:"kind"`
 	Aliases  []string `json:"aliases"`
 	Summary  string   `json:"summary,omitempty"`
+	Category string   `json:"category,omitempty"`
+	Audience Audience `json:"audience,omitempty"`
 	Source   string   `json:"source"`
 	Prefix   string   `json:"prefix,omitempty"` // an external's <prefix>-
 	Shadowed []Claim  `json:"shadowed"`
@@ -83,9 +94,12 @@ func NewCatalog(bin string, inline []*Command, externals, shadowedExternals []Ex
 	for _, cmd := range inline {
 		if w := byName[cmd.Name]; w != nil {
 			w.Shadowed = append(w.Shadowed, Claim{Name: cmd.Name, Kind: KindInline, Source: cmd.Source})
+			if cmd.builtin && w.Audience == "" {
+				w.Audience = cmd.Audience
+			}
 			continue
 		}
-		byName[cmd.Name] = &Entry{Name: cmd.Name, Kind: KindInline, Aliases: []string{}, Summary: cmd.Summary, Source: cmd.Source, Shadowed: []Claim{}, Command: cmd}
+		byName[cmd.Name] = &Entry{Name: cmd.Name, Kind: KindInline, Aliases: []string{}, Summary: cmd.Summary, Category: cmd.Category, Audience: cmd.Audience, Source: cmd.Source, Shadowed: []Claim{}, Command: cmd}
 	}
 	for _, ext := range externals {
 		if w := byName[ext.Name]; w != nil {

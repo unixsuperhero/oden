@@ -25,12 +25,14 @@ const (
 // Command is an inline command. Run receives the words after the command's
 // own. Source is where it was registered (file:line), filled by Add.
 type Command struct {
-	Name    string
-	Aliases []string
-	Summary string
-	Run     func(ctx context.Context, args []string) error
-	Handle  Handler // takes precedence over Run when set
-	Source  string
+	Name     string
+	Aliases  []string
+	Summary  string
+	Category string   // optional listing group
+	Audience Audience // empty defaults to human; overrides inherit a builtin's audience
+	Run      func(ctx context.Context, args []string) error
+	Handle   Handler // takes precedence over Run when set
+	Source   string
 
 	builtin bool // WithBuiltins': loses its name to any other inline command
 }
@@ -53,7 +55,8 @@ type App struct {
 
 	// Prefixes (WithPrefixes) are extra bin names whose <name>-<sub>
 	// executables are discovered after the bin's own.
-	Prefixes []string
+	Prefixes   []string
+	Categories map[string]string // optional category overrides by canonical command name
 
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
@@ -101,6 +104,12 @@ func WithStdio(in io.Reader, out, errOut io.Writer) Option {
 // them.
 func WithPrefixes(names ...string) Option {
 	return func(a *App) { a.Prefixes = append(a.Prefixes, names...) }
+}
+
+// WithCategories assigns listing groups by canonical command name, including
+// discovered externals. Unassigned commands remain visible under Other.
+func WithCategories(categories map[string]string) Option {
+	return func(a *App) { a.Categories = categories }
 }
 
 // WithDefault sets the handler for no command word or an unknown one.
@@ -177,6 +186,11 @@ func (a *App) Catalog() *Catalog {
 		}
 		found, shadowed := DiscoverAll(append([]string{a.Name}, a.Prefixes...), a.pathList(), fsys)
 		a.catalog = NewCatalog(a.Name, a.inline(), found, shadowed)
+		for _, e := range a.catalog.Entries {
+			if category, ok := a.Categories[e.Name]; ok {
+				e.Category = category
+			}
+		}
 	}
 	return a.catalog
 }

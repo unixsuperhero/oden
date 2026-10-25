@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
+	"strings"
 )
 
-// WithBuiltins adds the inline commands help (also -h, --help), commands
-// (the catalog as JSON), which (where a word resolves), catalog (the
-// catalog answer, CatalogDoc), state (the command rows as JSON Lines) and
-// command list|show|state (the catalog's one noun). A builtin is a
-// default: a command the app registers under the same name owns it
-// (cli.Mount's richer catalog, o-inventory's state), whenever it is added,
-// and the builtin is listed as the claim it shadows.
+// WithBuiltins adds human-facing help, info, version and which, and machine-facing
+// commands, catalog, state and command list|show|state. Machine commands
+// retain their JSON formats and argument handling. An app's own command
+// always owns its name over a builtin.
 func WithBuiltins() Option {
 	return func(a *App) {
 		cmds := builtins(a)
@@ -25,25 +24,71 @@ func WithBuiltins() Option {
 
 func builtins(a *App) []Command {
 	return []Command{
-		{Name: "help", Aliases: []string{"-h", "--help"}, Summary: "list the commands", Run: func(context.Context, []string) error {
+		{Name: "help", Aliases: []string{"-h", "--help"}, Summary: "list the commands by audience", Run: func(context.Context, []string) error {
 			a.Help(a.Stdout)
 			return nil
 		}},
-		{Name: "commands", Summary: "print the command catalog as JSON", Run: func(context.Context, []string) error {
-			data, err := json.MarshalIndent(a.Catalog().Entries, "", "  ")
-			if err != nil {
+		{Name: "version", Summary: "print the version, commit and build metadata", Run: func(_ context.Context, args []string) error {
+			usage := fmt.Sprintf("usage: %s version [-h|--help]", a.Name)
+			if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
+				_, err := fmt.Fprintln(a.Stdout, usage)
 				return err
 			}
-			_, err = fmt.Fprintf(a.Stdout, "%s\n", data)
+			if len(args) != 0 {
+				return &ExitError{Code: 2, Err: fmt.Errorf("%s", usage)}
+			}
+			info, _ := debug.ReadBuildInfo()
+			return writeVersion(a.Stdout, a.Name, info)
+		}},
+		{Name: "info", Summary: "describe this bin or a command", Run: func(_ context.Context, args []string) error {
+			literal := len(args) > 0 && args[0] == "--"
+			if literal {
+				args = args[1:]
+			}
+			usage := fmt.Sprintf("usage: %s info [COMMAND] [-h|--help]", a.Name)
+			if !literal && len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
+				_, err := fmt.Fprintln(a.Stdout, usage)
+				return err
+			}
+			if len(args) > 1 || !literal && len(args) == 1 && strings.HasPrefix(args[0], "-") {
+				return &ExitError{Code: 2, Err: fmt.Errorf("%s", usage)}
+			}
+			if len(args) == 0 {
+				if _, err := fmt.Fprintf(a.Stdout, "%s\nVersion: %s\nRoot: %s\n\n", a.Name, buildVersion(), a.RootName()); err != nil {
+					return err
+				}
+				a.Help(a.Stdout)
+				return nil
+			}
+			res := a.Catalog().Resolve(args[0])
+			if !res.Resolved() {
+				return &ExitError{Code: 1, Err: fmt.Errorf("%s: no command %q (%d match)", a.Name, res.Query, len(res.Candidates))}
+			}
+			e := res.Entry
+			category := e.Category
+			if category == "" {
+				category = "Other"
+			}
+			audience := e.Audience
+			if audience == "" {
+				audience = AudienceHuman
+			}
+			_, err := fmt.Fprintf(a.Stdout, "%s %s\nSummary: %s\nAudience: %s\nCategory: %s\nKind: %s\nSource: %s\nAliases: %s\n", a.Name, e.Name, e.Summary, audience, category, e.Kind, e.Source, strings.Join(e.Aliases, ", "))
+			if err == nil && len(e.Shadowed) != 0 {
+				a.List(a.Stdout, []*Entry{e})
+			}
 			return err
 		}},
-		{Name: "catalog", Summary: "print the catalog answer (schema 1: the command noun) as JSON", Run: func(context.Context, []string) error {
+		{Name: "commands", Audience: AudienceMachine, Summary: "print the command registry as JSON", Run: func(context.Context, []string) error {
+			return a.writeJSON(a.Catalog().Entries)
+		}},
+		{Name: "catalog", Audience: AudienceMachine, Summary: "print the catalog answer (schema 1) as JSON", Run: func(context.Context, []string) error {
 			return a.WriteCatalog(a.Stdout)
 		}},
-		{Name: "state", Summary: "print every command row as JSON Lines (command state)", Run: func(context.Context, []string) error {
+		{Name: "state", Audience: AudienceMachine, Summary: "print command rows as JSON Lines", Run: func(context.Context, []string) error {
 			return a.WriteState(a.Stdout)
 		}},
-		{Name: CommandNoun, Summary: "list show state", Run: func(_ context.Context, args []string) error {
+		{Name: CommandNoun, Audience: AudienceMachine, Summary: "list, show or stream command rows as JSON", Run: func(_ context.Context, args []string) error {
 			usage := fmt.Errorf("usage: %s %s list|show NAME|state", a.Name, CommandNoun)
 			if len(args) == 0 {
 				return usage
@@ -61,12 +106,7 @@ func builtins(a *App) []Command {
 				if !res.Resolved() {
 					return &ExitError{Code: 1, Err: fmt.Errorf("%s: no command %q (%d match)", a.Name, res.Query, len(res.Candidates))}
 				}
-				data, err := json.MarshalIndent(commandRow(res.Entry), "", "  ")
-				if err != nil {
-					return err
-				}
-				_, err = fmt.Fprintf(a.Stdout, "%s\n", data)
-				return err
+				return a.writeJSON(commandRow(res.Entry))
 			}
 			return usage
 		}},
@@ -88,4 +128,13 @@ func builtins(a *App) []Command {
 			return err
 		}},
 	}
+}
+
+func (a *App) writeJSON(value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(a.Stdout, "%s\n", data)
+	return err
 }

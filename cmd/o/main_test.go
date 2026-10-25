@@ -137,7 +137,7 @@ func TestOStateRowsForAFakePath(t *testing.T) {
 		rows[r.ID] = r
 		order = append(order, r.ID)
 	}
-	want := []string{"catalog", "command", "commands", "help", "proj", "state", "which", "x"}
+	want := []string{"catalog", "command", "commands", "help", "info", "proj", "state", "version", "which", "x"}
 	if strings.Join(order, " ") != strings.Join(want, " ") {
 		t.Fatalf("ids %v, want %v", order, want)
 	}
@@ -154,7 +154,16 @@ func TestOStateRowsForAFakePath(t *testing.T) {
 	if !strings.Contains(show, `"id": "proj"`) || !strings.Contains(show, `"path": "`+proj+`"`) {
 		t.Fatalf("show:\n%s", show)
 	}
-	if list := runO(t, path, "command", "list"); !strings.HasPrefix(list, "[\n  {\"noun\":\"command\",\"id\":\"catalog\"") || strings.Count(list, "\n") != len(want)+2 {
-		t.Fatalf("list:\n%s", list)
+	var listed []row
+	list := runO(t, path, "command", "list")
+	if err := json.Unmarshal([]byte(list), &listed); err != nil {
+		t.Fatalf("list: %v\n%s", err, list)
+	}
+	byID := map[string]row{}
+	for _, r := range listed {
+		byID[r.ID] = r
+	}
+	if byID["proj"].Data.Path != proj || byID["x"].Data.Path != x || byID["x"].Data.Shadows[0].Source != shadowedX {
+		t.Fatalf("listed external commands: %+v", byID)
 	}
 }

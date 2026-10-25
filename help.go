@@ -3,19 +3,71 @@ package oden
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
-// Help writes the full listing: every entry, its kind, summary and source,
-// and the claims it shadows.
+// Help writes commands separated by audience, then by optional category,
+// including their kind, summary, source and shadowed claims.
 func (a *App) Help(w io.Writer) {
-	fmt.Fprintf(w, "usage: %s COMMAND [ARGS...]\n\ncommands:\n", a.Name)
-	a.List(w, a.Catalog().Entries)
+	fmt.Fprintf(w, "usage: %s COMMAND [ARGS...]\n\n", a.Name)
+	entries := a.Catalog().Entries
+	var human, machine []*Entry
+	for _, e := range entries {
+		if e.Audience == AudienceMachine {
+			machine = append(machine, e)
+		} else {
+			human = append(human, e)
+		}
+	}
+	if len(machine) == 0 {
+		fmt.Fprintln(w, "commands:")
+		a.List(w, human)
+		return
+	}
+	if len(human) != 0 {
+		fmt.Fprintln(w, "Human commands:")
+		a.List(w, human)
+		fmt.Fprintln(w)
+	}
+	fmt.Fprintln(w, "Machine commands (JSON / JSON Lines):")
+	a.List(w, machine)
 }
 
-// List writes one row per entry (name and aliases, kind, summary, source)
-// and a "shadows" line under it per losing claim.
+// List writes entries grouped by optional category, with uncategorized
+// entries under Other. Without categories it keeps a flat listing.
 func (a *App) List(w io.Writer, entries []*Entry) {
+	categorized := false
+	for _, e := range entries {
+		if e.Category != "" {
+			categorized = true
+			break
+		}
+	}
+	if !categorized {
+		a.listEntries(w, entries)
+		return
+	}
+	groups := map[string][]*Entry{}
+	for _, e := range entries {
+		category := e.Category
+		if category == "" {
+			category = "Other"
+		}
+		groups[category] = append(groups[category], e)
+	}
+	keys := make([]string, 0, len(groups))
+	for category := range groups {
+		keys = append(keys, category)
+	}
+	sort.Strings(keys)
+	for _, category := range keys {
+		fmt.Fprintf(w, "\n%s:\n", category)
+		a.listEntries(w, groups[category])
+	}
+}
+
+func (a *App) listEntries(w io.Writer, entries []*Entry) {
 	names := make([]string, len(entries))
 	nameW, sumW := 0, 0
 	for i, e := range entries {
