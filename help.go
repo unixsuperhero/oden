@@ -78,6 +78,9 @@ func writeParameters(w io.Writer, parameters []Parameter, indent string) {
 // including their kind, summary, source and shadowed claims.
 func (a *App) Help(w io.Writer) {
 	defer func() {
+		if a.merge != nil && a.merge.passThrough {
+			fmt.Fprintf(w, "\nOther words run %s (%s).\n", a.merge.name, a.merge.path)
+		}
 		hasGroups := a.invocation != ""
 		for _, e := range a.Catalog().Entries {
 			hasGroups = hasGroups || e.Command != nil && e.Command.Children != nil
@@ -166,7 +169,11 @@ func (a *App) listEntries(w io.Writer, entries []*Entry) {
 			if c.AliasOf != "" {
 				label = fmt.Sprintf("alias %s of %s", c.Name, c.AliasOf)
 			}
-			fmt.Fprintf(w, "  %-*s  shadows %s %s\n", nameW, "", label, c.Source)
+			verb := "shadows"
+			if c.Merged {
+				verb = "merges"
+			}
+			fmt.Fprintf(w, "  %-*s  %s %s %s\n", nameW, "", verb, label, c.Source)
 		}
 	}
 }

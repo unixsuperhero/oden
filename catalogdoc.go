@@ -77,6 +77,7 @@ type CommandData struct {
 	Aliases  []string `json:"aliases"`
 	Shadows  []Claim  `json:"shadows"`
 	Prefix   string   `json:"prefix,omitempty"` // an external's <prefix>-
+	Sub      string   `json:"sub,omitempty"`    // a merged external's subcommand
 }
 
 // CatalogDoc is the bin's catalog answer: the command noun with list
@@ -130,7 +131,7 @@ func commandRow(e *Entry) Row {
 		aliases = []string{}
 	}
 	return Row{Noun: CommandNoun, ID: e.Name, Label: strings.Join([]string{e.Name, string(e.Kind), where}, "  "),
-		Data: CommandData{Kind: e.Kind, Category: e.Category, Summary: e.Summary, Audience: e.Audience, Path: e.Path, Source: e.Source, Aliases: aliases, Shadows: shadows, Prefix: e.Prefix}}
+		Data: CommandData{Kind: e.Kind, Category: e.Category, Summary: e.Summary, Audience: e.Audience, Path: e.Path, Source: e.Source, Aliases: aliases, Shadows: shadows, Prefix: e.Prefix, Sub: e.Sub}}
 }
 
 // WriteState writes the command rows as JSON Lines.

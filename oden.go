@@ -71,7 +71,9 @@ type App struct {
 
 	commands   []*Command
 	catalog    *Catalog
-	invocation string // spaced command path for declarative groups
+	merged     bool         // the catalog holds merge's subcommands
+	merge      *mergeSource // the external sharing this group's name
+	invocation string       // spaced command path for declarative groups
 }
 
 // Option configures an App in New.
@@ -161,7 +163,7 @@ func (a *App) add(skip int, cmds ...Command) *App {
 		}
 		a.commands = append(a.commands, &c)
 	}
-	a.catalog = nil
+	a.catalog, a.merged = nil, false
 	return a
 }
 
@@ -187,8 +189,20 @@ func shortFile(file string) string {
 }
 
 // Catalog is the merged inline and external commands, discovered on first
-// use and cached until the next Add.
+// use and cached until the next Add. A command group whose name an
+// external also has adds that external's subcommands (merge.go).
 func (a *App) Catalog() *Catalog {
+	c := a.baseCatalog()
+	if a.merge != nil && !a.merged {
+		a.merged = true
+		a.merge.mergeInto(a, c)
+	}
+	return c
+}
+
+// baseCatalog is the catalog without a merged external's subcommands:
+// what an exact word resolves against before the external is asked.
+func (a *App) baseCatalog() *Catalog {
 	if a.catalog == nil {
 		fsys := a.FS
 		if fsys == nil {
@@ -265,6 +279,13 @@ func (a *App) Run(ctx context.Context) error {
 	if len(a.Args) == 0 {
 		return a.fallback(ctx, "")
 	}
+	if a.merge != nil && !a.merged {
+		// An exact inline or PATH word outranks every merged subcommand:
+		// run it without asking the external.
+		if e := a.baseCatalog().Lookup(a.Args[0]); e != nil {
+			return a.RunEntry(ctx, e, a.Args[1:])
+		}
+	}
 	res := a.Catalog().Resolve(a.Args[0])
 	switch {
 	case res.Ambiguous:
@@ -285,6 +306,9 @@ func (a *App) fallback(ctx context.Context, word string) error {
 		}
 		return err
 	}
+	if a.merge != nil && a.merge.passThrough && word != "" {
+		return a.runExternal(ctx, a.merge.path, a.Args, a.merge.parent)
+	}
 	if word == "" {
 		fmt.Fprintf(a.Stderr, "usage: %s COMMAND [ARGS...]\n\ncommands:\n", a.helpName())
 		a.List(a.Stderr, a.Catalog().Entries)
@@ -301,6 +325,9 @@ func (a *App) RunEntry(ctx context.Context, e *Entry, args []string) error {
 			child := Child(a, c.Name, args)
 			child.invocation = a.helpName() + " " + c.Name
 			child.Add(c.Children...)
+			if claim := mergedClaim(e); claim != nil {
+				child.merge = &mergeSource{path: claim.Source, name: filepath.Base(claim.Source), parent: a.Name}
+			}
 			if len(args) == 0 || len(args) == 1 && helpFlag(args[0]) {
 				child.Help(a.Stdout)
 				return nil
@@ -319,9 +346,26 @@ func (a *App) RunEntry(ctx context.Context, e *Entry, args []string) error {
 		}
 		return e.Command.Run(ctx, args)
 	}
-	cmd := exec.CommandContext(ctx, e.Path, args...)
+	if e.Sub != "" {
+		parent := e.parent
+		if parent == "" {
+			parent = a.Name
+		}
+		return a.runExternal(ctx, e.Path, append([]string{e.Sub}, args...), parent)
+	}
+	return a.runExternal(ctx, e.Path, args, a.Name)
+}
+
+// externalEnv is the environment an external starts with: the App's plus
+// ODEN_PARENT=parent and ODEN_ROOT.
+func (a *App) externalEnv(parent string) []string {
+	return append(append([]string{}, a.env()...), EnvParent+"="+parent, EnvRoot+"="+a.RootName())
+}
+
+func (a *App) runExternal(ctx context.Context, path string, args []string, parent string) error {
+	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = a.Stdin, a.Stdout, a.Stderr
-	cmd.Env = append(append([]string{}, a.env()...), EnvParent+"="+a.Name, EnvRoot+"="+a.RootName())
+	cmd.Env = a.externalEnv(parent)
 	err := cmd.Run()
 	var ee *exec.ExitError
 	if errors.As(err, &ee) {

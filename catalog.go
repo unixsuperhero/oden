@@ -30,6 +30,9 @@ type Claim struct {
 	Kind    Kind   `json:"kind"`
 	Source  string `json:"source"`
 	AliasOf string `json:"alias_of,omitempty"`
+	// Merged marks the external a command group merges: its subcommands
+	// join the group's children (see App.RunEntry).
+	Merged bool `json:"merged,omitempty"`
 }
 
 // Audience identifies a command's intended consumer, independently of its
@@ -54,8 +57,14 @@ type Entry struct {
 	Prefix   string   `json:"prefix,omitempty"` // an external's <prefix>-
 	Shadowed []Claim  `json:"shadowed"`
 
+	// Sub is set for a subcommand of a merged external: it runs as
+	// Path Sub ARGS... (BIN-NAME SUB ARGS...).
+	Sub string `json:"sub,omitempty"`
+
 	Command *Command `json:"-"` // set for KindInline
 	Path    string   `json:"-"` // set for KindExternal
+
+	parent string // a merged subcommand's ODEN_PARENT
 }
 
 // Resolution is what a word names: the entry when it names exactly one
@@ -112,7 +121,8 @@ func NewCatalog(bin string, inline []*Command, externals, shadowedExternals []Ex
 	}
 	for _, ext := range externals {
 		if w := byName[ext.Name]; w != nil {
-			w.Shadowed = append(w.Shadowed, Claim{Name: ext.Name, Kind: KindExternal, Source: ext.Path})
+			merged := w.Kind == KindInline && w.Command.Children != nil
+			w.Shadowed = append(w.Shadowed, Claim{Name: ext.Name, Kind: KindExternal, Source: ext.Path, Merged: merged})
 			continue
 		}
 		byName[ext.Name] = &Entry{Name: ext.Name, Kind: KindExternal, Aliases: []string{}, Source: ext.Path, Prefix: ext.Prefix, Shadowed: []Claim{}, Path: ext.Path}
