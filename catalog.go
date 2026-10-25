@@ -99,7 +99,16 @@ func NewCatalog(bin string, inline []*Command, externals, shadowedExternals []Ex
 			}
 			continue
 		}
-		byName[cmd.Name] = &Entry{Name: cmd.Name, Kind: KindInline, Aliases: []string{}, Summary: cmd.Summary, Category: cmd.Category, Audience: cmd.Audience, Source: cmd.Source, Shadowed: []Claim{}, Command: cmd}
+		summary := cmd.Summary
+		if summary == "" && cmd.Children != nil {
+			names := make([]string, 0, len(cmd.Children))
+			for _, child := range cmd.Children {
+				names = append(names, child.Name)
+			}
+			sort.Strings(names)
+			summary = strings.Join(names, " ")
+		}
+		byName[cmd.Name] = &Entry{Name: cmd.Name, Kind: KindInline, Aliases: []string{}, Summary: summary, Category: cmd.Category, Audience: cmd.Audience, Source: cmd.Source, Shadowed: []Claim{}, Command: cmd}
 	}
 	for _, ext := range externals {
 		if w := byName[ext.Name]; w != nil {

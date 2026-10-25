@@ -7,10 +7,87 @@ import (
 	"strings"
 )
 
+// Parameter describes a command argument for help. Oden does not parse it.
+type Parameter struct {
+	Name        string
+	Type        string
+	Description string
+	Required    bool
+	Choices     []string
+	Source      string
+	Free        bool
+}
+
+func helpFlag(word string) bool { return word == "-h" || word == "--help" }
+
+func (a *App) helpName() string {
+	if a.invocation != "" {
+		return a.invocation
+	}
+	return a.Name
+}
+
+func (a *App) helpNotes(w io.Writer) {
+	if a.HelpText != "" {
+		fmt.Fprintf(w, "\n%s\n", a.HelpText)
+	}
+}
+
+func (a *App) commandHelp(w io.Writer, c *Command) error {
+	var out strings.Builder
+	usage := c.Usage
+	if usage == "" {
+		usage = "[ARGS...]"
+	}
+	fmt.Fprintf(&out, "usage: %s %s %s\n", a.helpName(), c.Name, usage)
+	if c.Summary != "" {
+		fmt.Fprintf(&out, "\n%s\n", c.Summary)
+	}
+	if c.Details != "" {
+		fmt.Fprintf(&out, "\n%s\n", c.Details)
+	}
+	writeParameters(&out, c.Parameters, "  ")
+	a.helpNotes(&out)
+	_, err := io.WriteString(w, out.String())
+	return err
+}
+func writeParameters(w io.Writer, parameters []Parameter, indent string) {
+	for _, p := range parameters {
+		required := "optional"
+		if p.Required {
+			required = "required"
+		}
+		fmt.Fprintf(w, "\n%s--%s <%s> (%s)", indent, p.Name, p.Type, required)
+		if p.Description != "" {
+			fmt.Fprintf(w, ": %s", p.Description)
+		}
+		fmt.Fprintln(w)
+		if len(p.Choices) != 0 {
+			fmt.Fprintf(w, "%s  choices: %s\n", indent, strings.Join(p.Choices, ", "))
+		}
+		if p.Source != "" {
+			fmt.Fprintf(w, "%s  choices from: %s\n", indent, p.Source)
+		}
+		if p.Free {
+			fmt.Fprintf(w, "%s  other values are accepted\n", indent)
+		}
+	}
+}
+
 // Help writes commands separated by audience, then by optional category,
 // including their kind, summary, source and shadowed claims.
 func (a *App) Help(w io.Writer) {
-	fmt.Fprintf(w, "usage: %s COMMAND [ARGS...]\n\n", a.Name)
+	defer func() {
+		hasGroups := a.invocation != ""
+		for _, e := range a.Catalog().Entries {
+			hasGroups = hasGroups || e.Command != nil && e.Command.Children != nil
+		}
+		if hasGroups {
+			fmt.Fprintf(w, "\nRun '%s COMMAND --help' for command details.\n", a.helpName())
+		}
+		a.helpNotes(w)
+	}()
+	fmt.Fprintf(w, "usage: %s COMMAND [ARGS...]\n\n", a.helpName())
 	entries := a.Catalog().Entries
 	var human, machine []*Entry
 	for _, e := range entries {
@@ -78,6 +155,12 @@ func (a *App) listEntries(w io.Writer, entries []*Entry) {
 	for i, e := range entries {
 		line := fmt.Sprintf("  %-*s  %-10s  %-*s  %s", nameW, names[i], "("+string(e.Kind)+")", sumW, e.Summary, e.Source)
 		fmt.Fprintln(w, strings.TrimRight(line, " "))
+		if a.invocation != "" && e.Command != nil {
+			for line := range strings.Lines(e.Command.Details) {
+				fmt.Fprintf(w, "    %s\n", strings.TrimSuffix(line, "\n"))
+			}
+			writeParameters(w, e.Command.Parameters, "    ")
+		}
 		for _, c := range e.Shadowed {
 			label := string(c.Kind)
 			if c.AliasOf != "" {

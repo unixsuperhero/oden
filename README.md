@@ -66,6 +66,40 @@ app.Cmd("admin", "administration", func(c *oden.Ctx) error {
 })
 ```
 
+### Declarative command groups
+
+Register child rows with `Command.Children` when a command has subcommands.
+Oden owns their resolution, dispatch, and contextual help; no adapter-specific
+help renderer is needed.
+
+```go
+app.Add(oden.Command{Name: "project", Children: []oden.Command{
+	{Name: "list", Summary: "list projects", Handle: listProjects},
+	{Name: "new", Summary: "create a project", Handle: newProject,
+		Usage: "[--name NAME]",
+		Parameters: []oden.Parameter{
+			{Name: "name", Type: "string", Description: "Project name", Required: true},
+		}},
+}})
+```
+
+`BIN project`, `BIN project -h`, and `BIN project --help` list that group's
+commands, descriptions, and parameter metadata without running a handler.
+`BIN project new --help` and builtin `BIN help project new` describe one leaf.
+Unknown child commands list the current group's candidates, not unrelated
+root commands. Aliases, unique prefixes, ownership, and `<bin>-project-<sub>`
+external discovery use the ordinary child catalog.
+
+`Children: nil` is a leaf; a non-nil empty slice declares an empty group.
+Groups dispatch their children; `Run` / `Handle` belong on leaves. An omitted
+group summary is derived from its child names. Optional `Usage`, `Details`,
+and `Parameters` describe leaf help, while `App.HelpText` supplies shared
+application notes inherited by child groups. Parameter order is the order
+registered; `Choices`, `Source`, and `Free` describe accepted values. These
+fields are display metadata: oden does not parse or validate application flags.
+Existing leaf handlers without help metadata retain ownership of their arguments.
+
+
 ## The contract
 
 **Naming.** Any executable named `<bin>-<sub>` on PATH is the command `sub`
@@ -359,8 +393,9 @@ Exported data types and values:
 
 | Name | Consumer-facing data |
 |---|---|
-| `Command` | `Name`, `Aliases`, `Summary`, legacy `Run`, `Handle`, `Source` |
-| `App` | `Name`, `Root`, `Args`, `Default`, `Path`, `FS`, `Env`, `Prefixes`, `Stdin`, `Stdout`, `Stderr` |
+| `Command` | `Name`, `Aliases`, `Summary`, `Category`, `Audience`, `Children`, `Usage`, `Details`, `Parameters`, legacy `Run`, `Handle`, `Source` |
+| `Parameter` | `Name`, `Type`, `Description`, `Required`, `Choices`, `Source`, `Free` |
+| `App` | `Name`, `Root`, `Args`, `Default`, `Path`, `FS`, `Env`, `Prefixes`, `Stdin`, `Stdout`, `Stderr`, `HelpText` |
 | `Catalog` | `Bin`, sorted `Entries` |
 | `Entry` | `Name`, `Kind`, `Aliases`, `Summary`, `Source`, `Prefix`, `Shadowed`, `Command`, `Path` |
 | `Claim` | `Name`, `Kind`, `Source`, `AliasOf` |

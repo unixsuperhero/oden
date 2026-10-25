@@ -24,7 +24,14 @@ func WithBuiltins() Option {
 
 func builtins(a *App) []Command {
 	return []Command{
-		{Name: "help", Aliases: []string{"-h", "--help"}, Summary: "list the commands by audience", Run: func(context.Context, []string) error {
+		{Name: "help", Aliases: []string{"-h", "--help"}, Summary: "list the commands by audience", Run: func(ctx context.Context, args []string) error {
+			if len(args) != 0 && !(len(args) == 1 && (helpFlag(args[0]) || args[0] == "help")) {
+				res := a.Catalog().Resolve(args[0])
+				if !res.Resolved() || res.Entry.Name == "help" {
+					return &ExitError{Code: 1, Err: fmt.Errorf("%s: unknown or ambiguous command %q", a.helpName(), args[0])}
+				}
+				return a.RunEntry(ctx, res.Entry, append(args[1:], "--help"))
+			}
 			a.Help(a.Stdout)
 			return nil
 		}},

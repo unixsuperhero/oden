@@ -30,9 +30,15 @@ type Command struct {
 	Summary  string
 	Category string   // optional listing group
 	Audience Audience // empty defaults to human; overrides inherit a builtin's audience
-	Run      func(ctx context.Context, args []string) error
-	Handle   Handler // takes precedence over Run when set
-	Source   string
+	// Children makes this a command group. A non-nil empty slice is an
+	// empty group; nil leaves Run/Handle in control of the arguments.
+	Children   []Command
+	Usage      string // optional leaf argument synopsis, for contextual help
+	Details    string // additional descriptive help text
+	Parameters []Parameter
+	Run        func(ctx context.Context, args []string) error
+	Handle     Handler // takes precedence over Run when set
+	Source     string
 
 	builtin bool // WithBuiltins': loses its name to any other inline command
 }
@@ -60,9 +66,11 @@ type App struct {
 
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
+	HelpText       string // optional application notes appended to help
 
-	commands []*Command
-	catalog  *Catalog
+	commands   []*Command
+	catalog    *Catalog
+	invocation string // spaced command path for declarative groups
 }
 
 // Option configures an App in New.
@@ -125,6 +133,7 @@ func Child(parent *App, sub string, args []string) *App {
 		Name: parent.Name + "-" + sub, Root: parent.RootName(), Args: args,
 		Path: parent.Path, FS: parent.FS, Env: parent.Env,
 		Stdin: parent.Stdin, Stdout: parent.Stdout, Stderr: parent.Stderr,
+		HelpText: parent.HelpText,
 	}
 }
 
@@ -272,9 +281,9 @@ func (a *App) fallback(ctx context.Context, word string) error {
 		return a.Default(ctx, a.Args)
 	}
 	if word == "" {
-		fmt.Fprintf(a.Stderr, "usage: %s COMMAND [ARGS...]\n\ncommands:\n", a.Name)
+		fmt.Fprintf(a.Stderr, "usage: %s COMMAND [ARGS...]\n\ncommands:\n", a.helpName())
 	} else {
-		fmt.Fprintf(a.Stderr, "%s: unknown command %q\n\ncommands:\n", a.Name, word)
+		fmt.Fprintf(a.Stderr, "%s: unknown command %q\n\ncommands:\n", a.helpName(), word)
 	}
 	a.List(a.Stderr, a.Catalog().Entries)
 	return &ExitError{Code: 1}
@@ -283,6 +292,21 @@ func (a *App) fallback(ctx context.Context, word string) error {
 // RunEntry runs one catalog entry with args.
 func (a *App) RunEntry(ctx context.Context, e *Entry, args []string) error {
 	if e.Kind == KindInline {
+		c := e.Command
+		if c.Children != nil {
+			child := Child(a, c.Name, args)
+			child.invocation = a.helpName() + " " + c.Name
+			child.Add(c.Children...)
+			if len(args) == 0 || len(args) == 1 && helpFlag(args[0]) {
+				child.Help(a.Stdout)
+				return nil
+			}
+			return child.Run(ctx)
+		}
+		if len(args) == 1 && helpFlag(args[0]) &&
+			(a.invocation != "" || c.Usage != "" || c.Details != "" || c.Parameters != nil) {
+			return a.commandHelp(a.Stdout, c)
+		}
 		if e.Command.Handle != nil {
 			return e.Command.Handle(&Ctx{
 				Context: ctx, App: a, Name: e.Command.Name, Args: args,
