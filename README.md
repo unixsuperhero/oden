@@ -96,7 +96,7 @@ across prefixes; a `Child` does not inherit extra prefixes.
 3. an inline alias (the first registration wins)
 
 Every losing claim stays on the winner as a `shadows ...` line in help and in
-`commands` JSON, so nothing is hidden silently.
+`commands --json`, so nothing is hidden silently.
 
 **Resolution** of the first word: an exact name or alias, else the one
 command with a name or alias starting with the word (`mtm ta` is `task` when
@@ -131,19 +131,87 @@ code of an `*ExitError` (an external's own exit status, 1 for help and
 ambiguity), else 1. `Report(w, prefix, err)` prints the error unless it is
 an `ExitError` with no cause, and returns the code.
 
-**Builtins** (opt-in, `WithBuiltins()`): `help` (also `-h`, `--help`) lists
-every command with its kind, summary, source (file:line of the `Add` call for
-inline, the path for external) and shadowed claims; `commands` prints the
-catalog as JSON (`name`, `kind`, `aliases`, `summary`, `source`,
-`shadowed`); `which WORD` prints `name kind source` for what the word
-resolves to; `catalog` prints the catalog answer in ochazuke/cli's schema 1
-(one noun, `command`, with `list` (rows `command`), `show NAME` and `state`;
-no bindings or pages; version from the build info), and `state` (also
-`command state`) prints one JSON Line per entry:
-`{"noun":"command","id":"proj","label":"proj  external  ~/bin/o-proj","data":{"kind","path","source","aliases","shadows","prefix"}}`.
-A builtin is a default: an app command of the same name (cli.Mount's
-`catalog`) owns the name whenever it is added, and the builtin is listed as
-its shadowed claim.
+**Builtins** (opt-in, `WithBuiltins()`): usage separates commands by audience.
+Human-facing commands print readable text; machine-facing commands retain
+their established JSON formats without requiring an output flag.
+
+| Audience | Invocation | Output |
+|---|---|---|
+| Human | `help`, `-h`, `--help` | Commands grouped by audience and optional domain category, with kind, summary, source and shadowed claims |
+| Human | `info [COMMAND]` | Bin information, or a command's summary, audience, category, kind, source and aliases |
+| Human | `version` | Embedded module version, full commit SHA, commit time, dirty-build flag, Go version and module path |
+| Human | `which WORD` | `name kind source` for the resolved command |
+| Machine | `commands` | Entry array: name, kind, aliases, summary, category, audience, source, prefix, shadowed |
+| Machine | `catalog` | ochazuke/cli schema 1: command noun with list, show and state; no bindings or pages |
+| Machine | `command list` | Command row array |
+| Machine | `command show NAME` | One command row |
+| Machine | `state`, `command state` | One command row per JSON Line |
+
+`info COMMAND`, `which WORD` and `command show NAME` resolve names, aliases
+and unique prefixes. A row has `noun`, `id`, `label` and `data`; data includes
+kind, path, source, aliases, shadows, prefix and optional summary, category
+and audience. Build info supplies the catalog version. `WriteCatalog` and
+`WriteState` remain explicit JSON APIs.
+
+Machine commands preserve their original argument handling: `commands`,
+`catalog`, `state`, `command list` and `command state` ignore trailing
+arguments, including the host convention `--json '{}' --yes`. `command show`
+still takes exactly one name, and `which` exactly one word. No `-j` is
+required, no `-H` / `--human` mode exists, and output never changes based on
+whether stdout is a terminal. Use `help` rather than changing a machine
+command's output format.
+
+`info -h` / `info --help` prints its usage; `info -- -h` describes the help
+alias. Invalid info arguments exit 2; unresolved names exit 1. Existing
+builtins retain their prior usage-error exit behavior.
+
+**Version provenance.** `version` is included by `WithBuiltins()`, so `o`
+and applications using the builtins acquire it when rebuilt against this
+oden version. App registrations can override it like any other builtin.
+The command reads Go's embedded `runtime/debug.ReadBuildInfo`, not the
+current directory, repository, or network. `Modified` describes the main
+module's source repository at build time, not its current status. It does
+not report dirty source in locally replaced dependency repositories.
+
+Use a normal package build with VCS stamping enabled to include the commit,
+for example `go build -buildvcs=true -o ~/bin/o ./cmd/o`. The version is
+the embedded main-module version, including `(devel)` or a pseudo-version
+when that is how the binary was built. Builds with no VCS metadata, such as
+`-buildvcs=false` or some `go run` builds, print `unknown` for the commit,
+time and modified flag rather than claiming a clean or released build.
+`version -h` / `version --help` prints usage; unexpected arguments exit 2.
+No output-format flag is needed.
+
+**Audience.** Set `Command.Audience` to `AudienceMachine` for a structured
+machine endpoint or `AudienceHuman` for readable output. Unspecified
+commands, including discovered externals, are presented as human-facing.
+Audience is presentation metadata, not an output serializer or dispatch
+rule. An app command overriding a builtin inherits that builtin's audience
+unless it explicitly sets one. Thus an overridden runtime `catalog` stays
+in the machine group without changing its handler. The app still owns the
+name whenever added, and the builtin remains a shadowed claim.
+
+**Family flag convention.** Give long flags single-letter aliases from
+`a-zA-Z` unless every available letter in that command's scope is already
+assigned. Reserve `-h` for help. Human commands default to readable output;
+documented machine endpoints retain stable structured output. Oden does not
+parse arbitrary handlers' or external processes' flags. Ochazuke's existing
+`--json OBJECT` input protocol is unchanged.
+
+**Categories.** Audience and domain category are independent. Set
+`Command.Category` for inline commands, or use
+`WithCategories(map[string]string{"task": "Work", "web": "Network"})` to
+assign or override groups by canonical name, including discovered externals.
+`Cmd` users can supply the same option. Within each audience, help sorts
+category headings alphabetically, keeps commands sorted within each group,
+and retains uncategorized commands under `Other`. Without categories a group
+stays flat. Apps with no machine commands retain the plain `commands:`
+listing. JSON entries and command rows retain optional category/audience
+metadata. Neither affects resolution.
+
+Oden does not execute discovered tools to collect metadata. External
+categories must be assigned by the owning app. `Child` does not inherit
+category assignments because its command names belong to a different scope.
 
 ```
 usage: mtm COMMAND [ARGS...]
@@ -164,7 +232,7 @@ TUI host, nabe, is installed as both `o-nabe` and `o-tui`:
 
 | Word | Resolves to, highest first |
 |---|---|
-| `o help`, `o commands`, `o which W`, `o catalog`, `o state`, `o command list\|show\|state` | inline builtins |
+| `o help`, `o info [W]`, `o version`, `o which W`; `o commands`, `o catalog`, `o state`, `o command list\|show\|state` | inline builtins; first group human-facing, second group JSON-first |
 | `o tui ARGS`, `o nabe ARGS` | external `o-tui` / `o-nabe` (nabe) |
 | `o proj new x` | external `o-proj new x` (`ODEN_PARENT=o`) |
 | `o pr new x` | the same, by unique prefix |
@@ -250,6 +318,7 @@ func New(name string, args []string, opts ...Option) *App
 func WithBuiltins() Option
 func WithDefault(run func(context.Context, []string) error) Option
 func WithPrefixes(names ...string) Option
+func WithCategories(categories map[string]string) Option
 func WithPath(path string) Option
 func WithFS(fsys FS) Option
 func WithEnv(env []string) Option
