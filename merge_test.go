@@ -127,6 +127,12 @@ func TestMergeCollisionRunsInlineAndHelpShowsShadowed(t *testing.T) {
 			t.Fatalf("missing %q in\n%s", want, help)
 		}
 	}
+	lines := strings.Split(help, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "  list ") && (i+1 == len(lines) || !strings.Contains(lines[i+1], "shadows external kit-project list")) {
+			t.Fatalf("the shadowed claim does not follow its row:\n%s", help)
+		}
+	}
 	if err := m.run(t, "help"); err != nil || !strings.Contains(m.out.String(), "merges external "+filepath.Join(m.dir, "kit-project")) {
 		t.Fatalf("root help: %v\n%s", err, m.out.String())
 	}
@@ -140,7 +146,7 @@ func TestMergeCrossSideAmbiguousPrefix(t *testing.T) {
 	m := newMergeEnv(t, map[string]string{"kit-project": catalogScript})
 	err := m.run(t, "project", "li")
 	e := m.err.String()
-	if ExitCode(err) != 1 || !strings.Contains(e, `"li" is ambiguous`) ||
+	if ExitCode(err) != 1 || !strings.HasPrefix(e, `kit project: "li" is ambiguous`) ||
 		!strings.Contains(e, "list  (inline)") || !strings.Contains(e, "lint  (external)") || !strings.Contains(e, "kit-project") {
 		t.Fatalf("%v\n%s", err, e)
 	}

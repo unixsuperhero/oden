@@ -289,7 +289,7 @@ func (a *App) Run(ctx context.Context) error {
 	res := a.Catalog().Resolve(a.Args[0])
 	switch {
 	case res.Ambiguous:
-		fmt.Fprintf(a.Stderr, "%s: %q is ambiguous; did you mean one of these?\n", a.Name, res.Query)
+		fmt.Fprintf(a.Stderr, "%s: %q is ambiguous; did you mean one of these?\n", a.helpName(), res.Query)
 		a.List(a.Stderr, res.Candidates)
 		return &ExitError{Code: 1}
 	case !res.Resolved():

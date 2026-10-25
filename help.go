@@ -158,12 +158,6 @@ func (a *App) listEntries(w io.Writer, entries []*Entry) {
 	for i, e := range entries {
 		line := fmt.Sprintf("  %-*s  %-10s  %-*s  %s", nameW, names[i], "("+string(e.Kind)+")", sumW, e.Summary, e.Source)
 		fmt.Fprintln(w, strings.TrimRight(line, " "))
-		if a.invocation != "" && e.Command != nil {
-			for line := range strings.Lines(e.Command.Details) {
-				fmt.Fprintf(w, "    %s\n", strings.TrimSuffix(line, "\n"))
-			}
-			writeParameters(w, e.Command.Parameters, "    ")
-		}
 		for _, c := range e.Shadowed {
 			label := string(c.Kind)
 			if c.AliasOf != "" {
@@ -174,6 +168,12 @@ func (a *App) listEntries(w io.Writer, entries []*Entry) {
 				verb = "merges"
 			}
 			fmt.Fprintf(w, "  %-*s  %s %s %s\n", nameW, "", verb, label, c.Source)
+		}
+		if a.invocation != "" && e.Command != nil {
+			for line := range strings.Lines(e.Command.Details) {
+				fmt.Fprintf(w, "    %s\n", strings.TrimSuffix(line, "\n"))
+			}
+			writeParameters(w, e.Command.Parameters, "    ")
 		}
 	}
 }
