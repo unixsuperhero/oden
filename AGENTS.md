@@ -6,6 +6,10 @@ Standard library only. Single flat package at the repo root, `examples/hello`
 as the reference consumer, `cmd/o` the family root bin. README.md holds the contract (naming, discovery,
 ownership, resolution, exit codes, env vars); keep it in sync with the code.
 
+## Plans and todos
+
+Family plans, todos and the roadmap live in `~/hub/o-plans/` (`README.md` is the index). Read it before planning work; add or update items there. Do not add a TODO.md or docs/plans/ to this repo.
+
 ## Where does X live
 
 | Concern | File |
