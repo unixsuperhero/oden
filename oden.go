@@ -249,6 +249,7 @@ type ExitError struct {
 	Err  error
 }
 
+// Error returns the cause's message, or "exit status N" without one.
 func (e *ExitError) Error() string {
 	if e.Err != nil {
 		return e.Err.Error()
@@ -256,6 +257,7 @@ func (e *ExitError) Error() string {
 	return fmt.Sprintf("exit status %d", e.Code)
 }
 
+// Unwrap returns the cause, so errors.Is and errors.As see through it.
 func (e *ExitError) Unwrap() error { return e.Err }
 
 // ExitCode is the process exit code for err: 0 for nil, an ExitError's

@@ -3,7 +3,13 @@
 The lowest layer for extensible, subcommand-driven CLI tools in Go: a bin's
 inline commands merged with third-party executables on PATH, git- and
 hiiro-style. No dependencies outside the standard library, no application
-knowledge. `github.com/unixsuperhero/oden`.
+knowledge.
+
+```sh
+go get github.com/unixsuperhero/oden@latest
+```
+
+Module `github.com/unixsuperhero/oden`; requires Go 1.26 or newer.
 
 ```go
 app := oden.New("hello", os.Args[1:], oden.WithBuiltins())
