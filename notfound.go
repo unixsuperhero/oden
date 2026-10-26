@@ -13,8 +13,8 @@ var ErrNotFound = errors.New("command not found")
 
 // NotFound reports word as naming no command of this level on Stderr: a
 // "BIN: command "WORD" not found" line ("BIN GROUP: subcommand ..." below
-// the root), a "did you mean:" line when Suggest finds any, then the level's
-// help. It returns an ExitError with code 1 and no cause.
+// the root), then a "did you mean:" line and a pointer to --help when
+// Suggest finds any, else the level's help. It returns an ExitError with code 1 and no cause.
 func (a *App) NotFound(word string) error {
 	kind := "command"
 	if a.invocation != "" || a.RootName() != a.Name {
@@ -22,7 +22,9 @@ func (a *App) NotFound(word string) error {
 	}
 	fmt.Fprintf(a.Stderr, "%s: %s %q not found\n", a.helpName(), kind, word)
 	if s := a.Suggest(word); len(s) != 0 {
-		fmt.Fprintf(a.Stderr, "did you mean: %s\n", strings.Join(s, ", "))
+		// A suggestion is enough; the level's help is one flag away.
+		fmt.Fprintf(a.Stderr, "did you mean: %s\n(%s --help lists every command)\n", strings.Join(s, ", "), a.helpName())
+		return &ExitError{Code: 1}
 	}
 	fmt.Fprintln(a.Stderr)
 	a.Help(a.Stderr)

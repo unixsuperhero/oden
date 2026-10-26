@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// A word with suggestions prints them and a pointer to --help, not the
+// whole usage; one with none prints the level's help.
 func TestNotFoundSuggestsAndPrintsUsage(t *testing.T) {
 	app, out, errOut := testApp(t, fakeFS{}, "")
 	app.Add(Command{Name: "task", Summary: "work items", Run: noop},
@@ -28,8 +30,12 @@ func TestNotFoundSuggestsAndPrintsUsage(t *testing.T) {
 		if ExitCode(err) != 1 || out.Len() != 0 {
 			t.Fatalf("%s: exit %d, stdout %q", tc.word, ExitCode(err), out)
 		}
-		want := `mtm: command "` + tc.word + `" not found` + "\n" + tc.suggest + "\nusage: mtm COMMAND [ARGS...]\n"
-		if !strings.HasPrefix(errOut.String(), want) || !strings.Contains(errOut.String(), "work items") {
+		// A suggestion and a pointer to --help, else the level's help.
+		want := `mtm: command "` + tc.word + `" not found` + "\n" + tc.suggest + "(mtm --help lists every command)\n"
+		if tc.suggest == "" {
+			want = `mtm: command "` + tc.word + `" not found` + "\n\nusage: mtm COMMAND [ARGS...]\n"
+		}
+		if !strings.HasPrefix(errOut.String(), want) || strings.Contains(errOut.String(), "work items") == (tc.suggest != "") {
 			t.Fatalf("%s:\n%s\nwant prefix:\n%s", tc.word, errOut, want)
 		}
 	}

@@ -195,12 +195,12 @@ Merging is one level deep: a nested inline group merges its own
 **Not found.** A word with no exact and no prefix match names nothing. Run
 prints to stderr `BIN: command "WORD" not found` (below the root, such as in
 a command group, `BIN GROUP: subcommand "WORD" not found`), then, when
-there are any, a short `did you mean: A, B` line of at most three commands:
-first those whose name or alias is a prefix of the word (`tasks` suggests
-`task`), then those within a small edit distance (one insertion, deletion,
-substitution or adjacent swap for a word of up to five letters, else two),
-then the level's help (the same listing as `BIN help` or a bare group), and
-exits 1. Suggestions are never run: `tasks` does not resolve to `task`.
+there are any, a short `did you mean: A, B` line of at most three commands
+(first those whose name or alias is a prefix of the word, `tasks` suggests
+`task`, then those within a small edit distance: one insertion, deletion,
+substitution or adjacent swap for a word of up to five letters, else two)
+and a `(BIN --help lists every command)` pointer; with no suggestion, the
+level's help (the same listing as `BIN help` or a bare group). It exits 1. Suggestions are never run: `tasks` does not resolve to `task`.
 `App.Suggest(word)` returns the suggestions and `App.NotFound(word)` prints
 the report and returns the exit error.
 

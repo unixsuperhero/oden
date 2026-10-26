@@ -156,7 +156,7 @@ func TestMergeNotFoundSuggestsBothSides(t *testing.T) {
 	m := newMergeEnv(t, map[string]string{"kit-project": catalogScript})
 	err := m.run(t, "project", "lit")
 	e := m.err.String()
-	if ExitCode(err) != 1 || !strings.HasPrefix(e, "kit project: subcommand \"lit\" not found\ndid you mean: lint, list\n") || !strings.Contains(e, "deploy") {
+	if ExitCode(err) != 1 || e != "kit project: subcommand \"lit\" not found\ndid you mean: lint, list\n(kit project --help lists every command)\n" {
 		t.Fatalf("%v\n%s", err, e)
 	}
 }
