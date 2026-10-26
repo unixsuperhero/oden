@@ -110,8 +110,8 @@ func WithStdio(in io.Reader, out, errOut io.Writer) Option {
 
 // WithPrefixes adds bin names whose <name>-<sub> executables on PATH are
 // also this bin's commands, discovered after its own <bin>-<sub> and in
-// the given order: with WithPrefixes("o"), mtm proj runs o-proj unless an
-// mtm-proj is on PATH, which then shadows it. A Child does not inherit
+// the given order: with WithPrefixes("o"), mtm ai runs o-ai unless an
+// mtm-ai is on PATH, which then shadows it. A Child does not inherit
 // them.
 func WithPrefixes(names ...string) Option {
 	return func(a *App) { a.Prefixes = append(a.Prefixes, names...) }

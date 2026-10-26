@@ -124,8 +124,8 @@ shadowed. Discovery runs once, on first use, and is cached until the next
 `<name>-<sub>` executables are also this bin's commands, discovered after
 the bin's own `<bin>-<sub>` (every PATH directory for the bin's prefix, then
 every directory per extra prefix, in the given order). So `mtm` built with
-`WithPrefixes("o")` runs `o-proj` for `mtm proj`, and an `mtm-proj` anywhere
-on PATH wins and lists `o-proj` as shadowed. Entries carry their `prefix`
+`WithPrefixes("o")` runs `o-ai` for `mtm ai`, and an `mtm-ai` anywhere
+on PATH wins and lists `o-ai` as shadowed. Entries carry their `prefix`
 (JSON) and help shows the path. The descendant rule below is unchanged
 across prefixes; a `Child` does not inherit extra prefixes.
 
@@ -333,7 +333,7 @@ TUI host, nabe, is installed as both `o-nabe` and `o-tui`:
 | `o pr new x` | the same, by unique prefix |
 
 Install: `go build -o ~/bin/o ./cmd/o`. Another app shares the family's
-tools with `WithPrefixes("o")`, as `mtm` does (`mtm proj` runs `o-proj`).
+tools with `WithPrefixes("o")`, as `mtm` does (`mtm ai` runs `o-ai`).
 
 ## One oden bin delegates to another
 
