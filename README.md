@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-    <img alt="oden" src="assets/logo-light.svg" width="219">
+    <img alt="oden" src="assets/logo-light.svg" width="201">
   </picture>
   <br>
   <a href="https://github.com/unixsuperhero/oden/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/unixsuperhero/oden"></a>
@@ -575,9 +575,6 @@ go run ./cmd/o help
 
 ## Logo and demo
 
-The logo is the Kushi: konnyaku, daikon and chikuwa threaded on one bamboo
-skewer, as subcommands sit on one bin, drawn in oden's dashi amber beside the
-family's rounded lettering. `python3 assets/build.py` regenerates
-`assets/icon.svg`, `assets/logo-light.svg` and `assets/logo-dark.svg`.
-`vhs docs/vhs/demo.tape` re-records `assets/demo.gif` in a throwaway
-directory; [docs/vhs/README.md](docs/vhs/README.md) says how.
+The logo is the Kushi: konnyaku, daikon and chikuwa threaded on one bamboo skewer, as subcommands sit on one bin, in oden's dashi amber. `python3 docs/logo/build.py` writes `assets/icon.svg`, `assets/logo-light.svg` and `assets/logo-dark.svg`, with the wordmark drawn in the family's lettering (ochazuke's and matomeru's; `--check` confirms the glyphs still redraw theirs, `--preview DIR` renders the icon at 16, 32 and 128 px). `vhs docs/vhs/demo.tape` records `assets/demo.gif` in a throwaway directory; see [docs/vhs/README.md](docs/vhs/README.md).
+
+MIT license.
