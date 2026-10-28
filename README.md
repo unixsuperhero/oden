@@ -1,25 +1,88 @@
-# oden
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img alt="oden" src="assets/logo-light.svg" width="219">
+  </picture>
+  <br>
+  <a href="https://github.com/unixsuperhero/oden/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/unixsuperhero/oden"></a>
+  <a href="https://pkg.go.dev/github.com/unixsuperhero/oden"><img alt="Go Reference" src="https://pkg.go.dev/badge/github.com/unixsuperhero/oden.svg"></a>
+  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/unixsuperhero/oden"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/unixsuperhero/oden"></a>
+</p>
+
+<p align="center">Subcommand dispatch for Go CLIs: a bin's inline commands and every <code>&lt;bin&gt;-&lt;sub&gt;</code> executable on PATH, in one table, resolved by name, alias or unique prefix.</p>
+
+<p align="center"><img alt="The hello example: its help listing inline and external commands, a unique prefix running a command, an ambiguous prefix listing its candidates, a descendant run by name, which, a did-you-mean suggestion and a handler reading stdin" src="assets/demo.gif" width="720"></p>
 
 The lowest layer for extensible, subcommand-driven CLI tools in Go: a bin's
 inline commands merged with third-party executables on PATH, git- and
 hiiro-style. No dependencies outside the standard library, no application
 knowledge.
 
+Module `github.com/unixsuperhero/oden`; requires Go 1.26 or newer. It is the
+outer shell of [ochazuke](https://github.com/unixsuperhero/ochazuke) apps,
+of [matomeru](https://github.com/unixsuperhero/matomeru)'s `mtm` and of the
+family's `o-*` tools ([below](#in-the-family)).
+
+## Install
+
 ```sh
 go get github.com/unixsuperhero/oden@latest
 ```
 
-Module `github.com/unixsuperhero/oden`; requires Go 1.26 or newer.
+The family root bin, `o`, is in this repository too:
 
-```go
-app := oden.New("hello", os.Args[1:], oden.WithBuiltins())
-app.Cmd("greet", "say hello", func(c *oden.Ctx) error {
-	return c.Printf("hello, %s\n", c.Arg(0, "world"))
-}, "hi")
-os.Exit(oden.Report(os.Stderr, "hello", app.Run(context.Background())))
+```sh
+go build -o ~/bin/o ./cmd/o
 ```
 
-## Handlers and input
+## Usage
+
+A whole bin: one inline command with an alias, oden's builtins, and every
+`hello-<sub>` executable on PATH as a command of its own.
+
+```go
+// Command hello is a bin with one inline command and every hello-<sub> on PATH.
+package main
+
+import (
+	"context"
+	"os"
+
+	"github.com/unixsuperhero/oden"
+)
+
+func main() {
+	app := oden.New("hello", os.Args[1:], oden.WithBuiltins())
+	app.Cmd("greet", "say hello", func(c *oden.Ctx) error {
+		return c.Printf("hello, %s\n", c.Arg(0, "world"))
+	}, "hi")
+	os.Exit(oden.Report(os.Stderr, "hello", app.Run(context.Background())))
+}
+```
+
+Put an executable `hello-weather` on PATH and it is `hello weather`, with no
+change to the bin. Every word resolves by exact name or alias, else by unique
+prefix:
+
+```console
+$ hello gr Ada
+hello, Ada
+$ hello hi
+hello, world
+$ hello wea Tokyo
+weather in Tokyo: sunny, 21C
+$ hello h
+hello: "h" is ambiguous; did you mean one of these?
+  greet, hi         (inline)    say hello                      hello/main.go:13
+  help, -h, --help  (inline)    list the commands by audience  oden@v0.1.1/builtins.go:21
+```
+
+[`examples/hello`](examples/hello) is the same bin with more handlers
+(`echo`, `cat`, `lines`) and an external `bin/hello-web`; the demo above
+records it ([docs/vhs](docs/vhs)).
+
+### Handlers and input
 
 `Cmd` registers a `Handler` with arguments, context, and the app's streams.
 `Command{Run: ...}` remains supported. `Command.Handle` takes precedence
@@ -72,7 +135,7 @@ app.Cmd("admin", "administration", func(c *oden.Ctx) error {
 })
 ```
 
-### Declarative command groups
+#### Declarative command groups
 
 Register child rows with `Command.Children` when a command has subcommands.
 Oden owns their resolution, dispatch, and contextual help; no adapter-specific
@@ -105,8 +168,71 @@ registered; `Choices`, `Source`, and `Free` describe accepted values. These
 fields are display metadata: oden does not parse or validate application flags.
 Existing leaf handlers without help metadata retain ownership of their arguments.
 
+### One oden bin delegates to another
 
-## The contract
+[`examples/delegation.go`](examples/delegation.go) contains runnable apps
+selected by executable name. Real projects can keep each app in its own
+package. Build the example executables into a temporary directory:
+
+```sh
+bins=$(mktemp -d)
+for name in toolbox toolbox-files toolbox-files-text desk; do
+	go build -o "$bins/$name" ./examples/delegation.go
+done
+export PATH="$bins:$PATH"
+```
+
+#### A parent delegates to a child bin
+
+`toolbox` has no inline `files` handler. Discovery finds `toolbox-files`,
+which is another oden app with an inline `info` handler:
+
+```sh
+toolbox files info Ada
+# bin=toolbox-files parent=toolbox root=toolbox arg=Ada
+toolbox fi info Ada
+# Same result through a unique prefix.
+```
+
+#### Three bins form a command chain
+
+`toolbox-files` discovers `toolbox-files-text`. Each bin consumes its own
+command word and forwards the rest, together with stdin, stdout, and stderr:
+
+```sh
+printf 'hello\n' | toolbox files text show
+# hello
+toolbox files text show README.md
+# Prints README.md.
+toolbox files text show < README.md
+# Prints the same input through stdin.
+```
+
+#### An unrelated bin shares another family's commands
+
+`desk` opts into `WithPrefixes("toolbox")`. It can dispatch `files` to the
+same `toolbox-files` executable without a wrapper or duplicate handler:
+
+```sh
+desk files info Ada
+# bin=toolbox-files parent=desk root=toolbox-files arg=Ada
+printf 'shared\n' | desk files text show
+# shared
+```
+
+The environment contains `ODEN_ROOT=desk` on the first shared-prefix hop.
+`New` adopts that root only when the executable name starts with `desk-`.
+Here it does not, so `toolbox-files` starts its own root, as the output shows.
+An installed `desk-files` wins over `toolbox-files`; the catalog records the
+losing executable as shadowed.
+
+## Concepts
+
+The rules every oden bin follows: how a command is named and found, who owns a
+word, how a word resolves, and what runs. Help, `commands`, `which` and `Run`
+all read one table of rows built by these rules.
+
+### The contract
 
 **Naming.** Any executable named `<bin>-<sub>` on PATH is the command `sub`
 of `bin`: put `mtm-web` on PATH and `mtm web ARGS...` runs it, as `git-web`
@@ -318,81 +444,6 @@ commands:
            shadows external /opt/mtm-web
 ```
 
-## The `o` root
-
-`cmd/o` is the family root bin (oden, ochazuke): an oden app named `o` with
-the builtins and nothing else built in. Every word follows the normal rule,
-so a tool joins the family by installing as `o-<tool>`; by convention the
-TUI host, nabe, is installed as both `o-nabe` and `o-tui`:
-
-| Word | Resolves to, highest first |
-|---|---|
-| `o help`, `o info [W]`, `o version`, `o which W`; `o commands`, `o catalog`, `o state`, `o command list\|show\|state` | inline builtins; first group human-facing, second group JSON-first |
-| `o tui ARGS`, `o nabe ARGS` | external `o-tui` / `o-nabe` (nabe) |
-| `o proj new x` | external `o-proj new x` (`ODEN_PARENT=o`) |
-| `o pr new x` | the same, by unique prefix |
-
-Install: `go build -o ~/bin/o ./cmd/o`. Another app shares the family's
-tools with `WithPrefixes("o")`, as `mtm` does (`mtm ai` runs `o-ai`).
-
-## One oden bin delegates to another
-
-[`examples/delegation.go`](examples/delegation.go) contains runnable apps
-selected by executable name. Real projects can keep each app in its own
-package. Build the example executables into a temporary directory:
-
-```sh
-bins=$(mktemp -d)
-for name in toolbox toolbox-files toolbox-files-text desk; do
-	go build -o "$bins/$name" ./examples/delegation.go
-done
-export PATH="$bins:$PATH"
-```
-
-### A parent delegates to a child bin
-
-`toolbox` has no inline `files` handler. Discovery finds `toolbox-files`,
-which is another oden app with an inline `info` handler:
-
-```sh
-toolbox files info Ada
-# bin=toolbox-files parent=toolbox root=toolbox arg=Ada
-toolbox fi info Ada
-# Same result through a unique prefix.
-```
-
-### Three bins form a command chain
-
-`toolbox-files` discovers `toolbox-files-text`. Each bin consumes its own
-command word and forwards the rest, together with stdin, stdout, and stderr:
-
-```sh
-printf 'hello\n' | toolbox files text show
-# hello
-toolbox files text show README.md
-# Prints README.md.
-toolbox files text show < README.md
-# Prints the same input through stdin.
-```
-
-### An unrelated bin shares another family's commands
-
-`desk` opts into `WithPrefixes("toolbox")`. It can dispatch `files` to the
-same `toolbox-files` executable without a wrapper or duplicate handler:
-
-```sh
-desk files info Ada
-# bin=toolbox-files parent=desk root=toolbox-files arg=Ada
-printf 'shared\n' | desk files text show
-# shared
-```
-
-The environment contains `ODEN_ROOT=desk` on the first shared-prefix hop.
-`New` adopts that root only when the executable name starts with `desk-`.
-Here it does not, so `toolbox-files` starts its own root, as the output shows.
-An installed `desk-files` wins over `toolbox-files`; the catalog records the
-losing executable as shadowed.
-
 ## API
 
 The signatures below list the consumer methods. `go doc -all .` also shows
@@ -471,7 +522,36 @@ Exported data types and values:
 | `ExitError` | `Code int`, `Err error` |
 | `EnvParent`, `EnvRoot` | Environment keys `ODEN_PARENT`, `ODEN_ROOT` |
 
-## TUI mode and ochazuke
+## In the family
+
+oden is the bottom layer of the o-family. It knows no application and no TUI;
+the layers above it are ordinary consumers:
+
+| Consumer | How it uses oden |
+|---|---|
+| [ochazuke](https://github.com/unixsuperhero/ochazuke) | The TUI framework builds on oden for CLI resolution: an app's nouns become inline commands of an oden `App`. |
+| [matomeru](https://github.com/unixsuperhero/matomeru) (`mtm`) | An oden app with `WithPrefixes("o")`: `mtm-<sub>` bins first, then the family's `o-<sub>` tools, so `mtm ai` runs `o-ai`. |
+| `o` (`cmd/o`) | The family root: oden's builtins and every `o-<tool>` on PATH. |
+| The `o-*` tools (`o-ai`, `o-proj`, `o-json`, `o-md`, ...) | Each is an oden app on PATH, so `o ai`, `o proj` and `mtm ai` reach it with no registration. |
+
+### The `o` root
+
+`cmd/o` is the family root bin (oden, ochazuke): an oden app named `o` with
+the builtins and nothing else built in. Every word follows the normal rule,
+so a tool joins the family by installing as `o-<tool>`; by convention the
+TUI host, nabe, is installed as both `o-nabe` and `o-tui`:
+
+| Word | Resolves to, highest first |
+|---|---|
+| `o help`, `o info [W]`, `o version`, `o which W`; `o commands`, `o catalog`, `o state`, `o command list\|show\|state` | inline builtins; first group human-facing, second group JSON-first |
+| `o tui ARGS`, `o nabe ARGS` | external `o-tui` / `o-nabe` (nabe) |
+| `o proj new x` | external `o-proj new x` (`ODEN_PARENT=o`) |
+| `o pr new x` | the same, by unique prefix |
+
+Install: `go build -o ~/bin/o ./cmd/o`. Another app shares the family's
+tools with `WithPrefixes("o")`, as `mtm` does (`mtm ai` runs `o-ai`).
+
+### TUI mode and ochazuke
 
 Not built yet; this is the intended seam. oden stays the outer shell and
 knows no TUI: an oden app hands its `Catalog` (plain data: entries with
@@ -492,3 +572,12 @@ gofmt -l . && go vet ./... && go test -race ./...
 go run ./examples/hello help
 go run ./cmd/o help
 ```
+
+## Logo and demo
+
+The logo is the Kushi: konnyaku, daikon and chikuwa threaded on one bamboo
+skewer, as subcommands sit on one bin, drawn in oden's dashi amber beside the
+family's rounded lettering. `python3 assets/build.py` regenerates
+`assets/icon.svg`, `assets/logo-light.svg` and `assets/logo-dark.svg`.
+`vhs docs/vhs/demo.tape` re-records `assets/demo.gif` in a throwaway
+directory; [docs/vhs/README.md](docs/vhs/README.md) says how.
