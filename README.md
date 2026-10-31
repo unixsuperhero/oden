@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-    <img alt="oden" src="assets/logo-light.svg" width="201">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-animated-dark.svg">
+    <img alt="oden" src="assets/logo-animated-light.svg" width="201">
   </picture>
   <br>
   <a href="https://github.com/unixsuperhero/oden/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/unixsuperhero/oden"></a>
