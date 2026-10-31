@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/unixsuperhero/oden"
+	"ofam.dev/oden"
 )
 
 // o has no inline commands beyond the builtins: o tui and o proj are

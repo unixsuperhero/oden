@@ -4,10 +4,10 @@
     <img alt="oden" src="assets/logo-light.svg" width="201">
   </picture>
   <br>
-  <a href="https://github.com/unixsuperhero/oden/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/unixsuperhero/oden"></a>
-  <a href="https://pkg.go.dev/github.com/unixsuperhero/oden"><img alt="Go Reference" src="https://pkg.go.dev/badge/github.com/unixsuperhero/oden.svg"></a>
-  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/unixsuperhero/oden"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/unixsuperhero/oden"></a>
+  <a href="https://github.com/ofamtools/oden/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/ofamtools/oden"></a>
+  <a href="https://pkg.go.dev/ofam.dev/oden"><img alt="Go Reference" src="https://pkg.go.dev/badge/ofam.dev/oden.svg"></a>
+  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/ofamtools/oden"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/ofamtools/oden"></a>
 </p>
 
 <p align="center">Subcommand dispatch for Go CLIs: a bin's inline commands and every <code>&lt;bin&gt;-&lt;sub&gt;</code> executable on PATH, in one table, resolved by name, alias or unique prefix.</p>
@@ -19,15 +19,15 @@ inline commands merged with third-party executables on PATH, git- and
 hiiro-style. No dependencies outside the standard library, no application
 knowledge.
 
-Module `github.com/unixsuperhero/oden`; requires Go 1.26 or newer. It is the
-outer shell of [ochazuke](https://github.com/unixsuperhero/ochazuke) apps,
-of [matomeru](https://github.com/unixsuperhero/matomeru)'s `mtm` and of the
+Module `ofam.dev/oden`; requires Go 1.26 or newer. It is the
+outer shell of [ochazuke](https://github.com/ofamtools/ochazuke) apps,
+of [matomeru](https://github.com/ofamtools/matomeru)'s `mtm` and of the
 family's `o-*` tools ([below](#in-the-family)).
 
 ## Install
 
 ```sh
-go get github.com/unixsuperhero/oden@latest
+go get ofam.dev/oden@latest
 ```
 
 The family root bin, `o`, is in this repository too:
@@ -49,7 +49,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/unixsuperhero/oden"
+	"ofam.dev/oden"
 )
 
 func main() {
@@ -529,8 +529,8 @@ the layers above it are ordinary consumers:
 
 | Consumer | How it uses oden |
 |---|---|
-| [ochazuke](https://github.com/unixsuperhero/ochazuke) | The TUI framework builds on oden for CLI resolution: an app's nouns become inline commands of an oden `App`. |
-| [matomeru](https://github.com/unixsuperhero/matomeru) (`mtm`) | An oden app with `WithPrefixes("o")`: `mtm-<sub>` bins first, then the family's `o-<sub>` tools, so `mtm ai` runs `o-ai`. |
+| [ochazuke](https://github.com/ofamtools/ochazuke) | The TUI framework builds on oden for CLI resolution: an app's nouns become inline commands of an oden `App`. |
+| [matomeru](https://github.com/ofamtools/matomeru) (`mtm`) | An oden app with `WithPrefixes("o")`: `mtm-<sub>` bins first, then the family's `o-<sub>` tools, so `mtm ai` runs `o-ai`. |
 | `o` (`cmd/o`) | The family root: oden's builtins and every `o-<tool>` on PATH. |
 | The `o-*` tools (`o-ai`, `o-proj`, `o-json`, `o-md`, ...) | Each is an oden app on PATH, so `o ai`, `o proj` and `mtm ai` reach it with no registration. |
 

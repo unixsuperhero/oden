@@ -9,7 +9,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/unixsuperhero/oden"
+	"ofam.dev/oden"
 )
 
 func newApp(args []string, opts ...oden.Option) *oden.App {

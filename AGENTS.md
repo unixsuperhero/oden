@@ -76,7 +76,7 @@ Semver tags on `main`; consumers (ochazuke, then the family bins) require the ta
 2. Add a `## vX.Y.Z (DATE)` section at the top of CHANGELOG.md (above o-inventory's dated entries) with the highlights.
 3. Run the checks with `GOWORK=off` and `go mod tidy` (no diff); commit and push.
 4. `git tag -a vX.Y.Z -m "..."` on that exact commit, `git push origin vX.Y.Z`, `gh release create vX.Y.Z --notes ...`. Never move or delete a pushed tag; fix forward with the next patch.
-5. Check the proxy: `GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod go list -m github.com/unixsuperhero/oden@vX.Y.Z`.
-6. Bump consumers: `go get github.com/unixsuperhero/oden@vX.Y.Z && go mod tidy`, gate with `GOWORK=off`, commit and push.
+5. Check the proxy: `GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod go list -m ofam.dev/oden@vX.Y.Z`.
+6. Bump consumers: `go get ofam.dev/oden@vX.Y.Z && go mod tidy`, gate with `GOWORK=off`, commit and push.
 
 Local development uses an untracked `go.work` in each consumer (`go work init . && go work use ../oden`), ignored via `.gitignore`; never commit a `replace` to a local path or a shared `~/proj/go.work`.

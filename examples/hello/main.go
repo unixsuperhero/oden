@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/unixsuperhero/oden"
+	"ofam.dev/oden"
 )
 
 func main() {

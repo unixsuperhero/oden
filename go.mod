@@ -1,3 +1,3 @@
-module github.com/unixsuperhero/oden
+module ofam.dev/oden
 
 go 1.26.0

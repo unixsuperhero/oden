@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/unixsuperhero/oden"
+	"ofam.dev/oden"
 )
 
 func main() {
